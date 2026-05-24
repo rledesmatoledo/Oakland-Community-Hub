@@ -24,3 +24,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+input {
+  background-color: rgb(249 250 251) !important;
+}
+
+input:focus {
+  background-color: rgb(249 250 251) !important;
+}
+
+textarea {
+  background-color: rgb(249 250 251) !important;
+  color: rgb(17 24 39) !important;
+}
+
+textarea:focus {
+  background-color: rgb(249 250 251) !important;
+}
