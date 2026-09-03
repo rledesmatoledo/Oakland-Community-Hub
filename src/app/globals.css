@@ -27,10 +27,12 @@ body {
 
 input {
   background-color: rgb(249 250 251) !important;
+  color: rgb(17 24 39) !important;
 }
 
 input:focus {
   background-color: rgb(249 250 251) !important;
+  color: rgb(17 24 39) !important;
 }
 
 textarea {
@@ -40,4 +42,12 @@ textarea {
 
 textarea:focus {
   background-color: rgb(249 250 251) !important;
+}
+
+input::placeholder {
+  color: rgb(107 114 128) !important;
+}
+
+input:focus::placeholder {
+  color: rgb(148 163 184) !important;
 }

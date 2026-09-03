@@ -3,6 +3,111 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
+function CrimeTab() {
+  const [crimes, setCrimes] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('all')
+
+   useEffect(() => {
+    fetch('/api/crime')
+      .then(r => r.json())
+      .then(data => {
+        setCrimes(data)
+        setLoading(false)
+      })
+  }, [])
+
+   const crimeTypes = {
+    'THEFT': { color: 'bg-amber-100 text-amber-700', label: 'Theft' },
+    'ASSAULT': { color: 'bg-red-100 text-red-700', label: 'Assault' },
+    'ROBBERY': { color: 'bg-red-100 text-red-700', label: 'Robbery' },
+    'BURGLARY': { color: 'bg-orange-100 text-orange-700', label: 'Burglary' },
+    'VANDALISM': { color: 'bg-purple-100 text-purple-700', label: 'Vandalism' },
+    'WEAPONS': { color: 'bg-red-100 text-red-700', label: 'Weapons' },
+    'VEHICLE': { color: 'bg-blue-100 text-blue-700', label: 'Vehicle' },
+    'DOMESTIC': { color: 'bg-pink-100 text-pink-700', label: 'Domestic' },
+  }
+
+  function getCrimeType(crimetype) {
+    if (!crimetype) return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
+    const upper = crimetype.toUpperCase()
+    for (const [key, val] of Object.entries(crimeTypes)) {
+      if (upper.includes(key)) return val
+    }
+    return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
+  }
+
+  const filters = ['all', 'theft', 'assault', 'vehicle', 'weapons', 'vandalism']
+
+  const filtered = filter === 'all' ? crimes : crimes.filter(c =>
+    c.crimetype?.toUpperCase().includes(filter.toUpperCase())
+  )
+
+   if (loading) return (
+    <div className="text-center py-12 text-gray-400 text-sm">
+      Loading Oakland crime data...
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="bg-red-50 border border-red-100 rounded-xl p-4">
+        <div className="text-sm font-medium text-red-800">Oakland Crime Reports</div>
+        <div className="text-xs text-red-600 mt-1">Live data from Oakland PD · Updates every hour</div>
+      </div>
+
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {filters.map(f => (
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            className={`text-xs px-3 py-1.5 rounded-full border capitalize flex-shrink-0 ${
+              filter === f
+                ? 'bg-red-500 text-white border-red-500'
+                : 'text-gray-500 border-gray-200'
+            }`}
+          >
+            {f}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        {filtered.map((crime, i) => {
+          const type = getCrimeType(crime.crimetype)
+          return (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 border-l-4 border-l-red-400">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${type.color}`}>
+                  {type.label}
+                </span>
+                <span className="text-xs text-gray-400 flex-shrink-0">
+                  {new Date(crime.datetime).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="text-sm text-gray-800 font-medium mb-1">
+                {crime.description || crime.crimetype}
+              </p>
+              <p className="text-xs text-gray-500">
+                 {crime.address}, Oakland
+              </p>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-xs text-gray-400">Case #{crime.casenumber}</span>
+                <span className="text-xs text-gray-400">Beat {crime.policebeat}</span>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <p className="text-xs text-gray-400 text-center pb-4">
+        Source: City of Oakland Open Data Portal
+      </p>
+    </div>
+  )
+}
+
+
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('feed')
   const [user, setUser] = useState(null)
@@ -95,10 +200,28 @@ async function addComment(postId,parentId = null) {
 
 }
 
+async function reportPost(postId) {
+   const reason = prompt('Why are you reporting this post?', 'spam')
+  if (!reason) return
+  const { error } = await supabase.from('reports').insert({
+    post_id: postId,
+    user_id: user?.id,
+    reason: 'other'
+  })
+  if (error) console.log(error)
+  else alert('Post reported. Thank you for keeping Oakland Hub safe.')
+}
+
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
+  
+
+  
+
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -190,7 +313,7 @@ async function addComment(postId,parentId = null) {
        {/* post text */}
         <p className="text-gray-900 text-sm mb-2">{post.content}</p>
 
-        {/* bottom row - badge and action buttons */}
+        {/* bottom row  badge and action buttons */}
         <div className="flex items-center justify-between mt-2">
           <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${
             post.category === 'safety' ? 'bg-red-100 text-red-700' :
@@ -222,7 +345,10 @@ async function addComment(postId,parentId = null) {
             >
                Comment
             </button>
-            <button className="text-xs text-gray-400 hover:text-red-400">
+            <button 
+              onClick={() => reportPost(post.id)}
+              className="text-xs text-gray-400 hover:text-red-400"
+            >
               ⚑ Report
             </button>
           </div>
@@ -321,7 +447,7 @@ async function addComment(postId,parentId = null) {
 </div>
 )}
 
-        {activeTab === 'crime' && <div>Crime goes here</div>}
+        {activeTab === 'crime' &&  <CrimeTab />}
         {activeTab === 'events' && <div>Events goes here</div>}
         {activeTab === 'map' && <div>Map goes here</div>}
         {activeTab === 'profile' && <div>Profile goes here</div>}
@@ -343,4 +469,4 @@ async function addComment(postId,parentId = null) {
 
     </div>
   )
-}
+} 
