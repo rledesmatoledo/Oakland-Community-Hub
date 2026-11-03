@@ -119,15 +119,13 @@ export default function HomePage() {
   const [isAnonymous, setIsAnonymous] = useState(false)
   const [expandedPost, setExpandedPost] = useState(null)
   const [commentText, setCommentText] = useState('')
-  const [upvotes, setUpvotes] = useState({})
-  const [userUpvotes,setUserUpvotes] = useState([])
   const [replyTo, setReplyTo] = useState(null)
+  const [comments, setComments] = useState({})
 
 
   useEffect(() => {
     getUser()
     getPosts()
-    getUpVotes()
   }, [])
 
   async function getUser() {
@@ -137,12 +135,22 @@ export default function HomePage() {
   }
 
   async function getPosts() {
-  const { data } = await supabase.from('posts')
-    .select('*, profiles(username, zip_code),comments(id, content, is_anonymous, created_at, parent_id, profiles(username))')
+  const { data, error } = await supabase
+    .from('feed_posts')
+    .select('*')
     .order('created_at', { ascending: false })
-  setPosts(data || []) 
+  if (error) console.log(error)
+  setPosts(data || [])
 }
-
+  async function getComments(postId) {
+  const { data, error } = await supabase
+    .from('feed_comments')
+    .select('*')
+    .eq('post_id', postId)
+    .order('created_at', { ascending: true })
+  if (error) console.log(error)
+  setComments(prev => ({ ...prev, [postId]: data || [] }))
+}
   async function createPost() {
   if (!content.trim()) return
   const { error } = await supabase.from('posts').insert({
@@ -157,31 +165,17 @@ export default function HomePage() {
   getPosts()
 }
 
-async function getUpVotes() {
-  const { data: { user } } = await supabase.auth.getUser()
-  const { data } = await supabase.from('upvotes').select('post_id, user_id')
-  if(!data) return
 
-  const upvotesCount = {}
-  const userUpvotes = []
-  
-  data.forEach(v => {
-    upvotesCount[v.post_id] = (upvotesCount[v.post_id] || 0) + 1
-    if(v.user_id === user.id) userUpvotes.push(v.post_id)
-  })
-setUpvotes(upvotesCount)
-setUserUpvotes(userUpvotes)
-}
 
-async function toggleUpvote(postId) {
-  if(userUpvotes.includes(postId)) {
+async function toggleUpvote(post) {
+  if (post.i_upvoted) {
     await supabase.from('upvotes')
-    .delete().eq('post_id', postId).eq('user_id', user.id)
+      .delete().eq('post_id', post.id).eq('user_id', user.id)
   } else {
     await supabase.from('upvotes')
-    .insert({ post_id: postId, user_id: user.id })
+      .insert({ post_id: post.id, user_id: user.id })
   }
-  getUpVotes()
+  getPosts()
 }
 
 async function addComment(postId,parentId = null) {
@@ -196,7 +190,7 @@ async function addComment(postId,parentId = null) {
   if (error) console.log(error)
   setCommentText('')
   setReplyTo(null)
-  getPosts()
+  getComments(postId)
 
 }
 
@@ -282,7 +276,7 @@ async function reportPost(postId) {
     </div>
     
     {posts.length === 0 ? (
-  // no posts yet - show empty message
+  // no posts yet (show empty message)
   <p className="text-sm text-gray-400 text-center mt-8">No posts yet. Be the first!</p>
 ) : (
   // loop through every post and render a card
@@ -290,19 +284,19 @@ async function reportPost(postId) {
     {posts.map(post => (
       <div key={post.id} className="bg-white rounded-xl border border-gray-200 p-4">
         
-        {/* header row - avatar, username, date */}
+        {/* header row avatar, username, date */}
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             {/* first letter of username as avatar */}
             <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
             post.is_anonymous ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-800'
               }`}>
-            {post.is_anonymous ? '?' : post.profiles?.username?.[0]?.toUpperCase() || 'U'}
+            {post.is_anonymous ? '?' : post.author_name?.[0]?.toUpperCase() || 'U'}
             </div>
             <span className="text-xs font-medium text-gray-700">
             {post.is_anonymous
-              ? 'Anonymous · ' + (post.profiles?.zip_code || 'Oakland')
-            : post.profiles?.username || 'Oakland Resident'}
+              ? 'Anonymous · ' + (post.zip_code || 'Oakland')
+            : post.author_name || 'Oakland Resident'}
             </span>
           </div>
           <span className="text-xs text-gray-400">
@@ -326,21 +320,24 @@ async function reportPost(postId) {
 
           <div className="flex items-center gap-3">
             <button
-              onClick={() => toggleUpvote(post.id)}
+              onClick={() => toggleUpvote(post)}
               className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full border ${
-              userUpvotes.includes(post.id) 
-              ?  'text-green-700 border-green-200 bg-green-50' 
+              post.i_upvoted              
+            ?  'text-green-700 border-green-200 bg-green-50' 
                  : 'text-gray-400 border-gray-200'
              }`}
 >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={userUpvotes.includes(post.id) ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill={post.i_upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
             <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
            <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
             </svg>
-            {upvotes[post.id] || 0}
+            {post.upvote_count}
             </button>
             <button
-              onClick={() => setExpandedPost(expandedPost === post.id ? null : post.id)}
+              onClick={() => {
+                setExpandedPost(expandedPost === post.id ? null : post.id)
+                getComments(post.id)
+              }}
               className="text-xs text-gray-400"
             >
                Comment
@@ -359,29 +356,29 @@ async function reportPost(postId) {
           <div className="mt-3 border-t border-gray-100 pt-3">
 
             {/* existing comments */}
-            {post.comments?.filter(c => !c.parent_id).map(comment => (
+            {comments[post.id]?.filter(c => !c.parent_id).map(comment => (
               <div key={comment.id} className="mb-3">
                 <div className="flex items-start gap-2">
                   <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-xs font-medium text-green-800 flex-shrink-0">
-                    {comment.is_anonymous ? '?' : comment.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                    {comment.is_anonymous ? '?' : comment.author_name?.[0]?.toUpperCase() || 'U'}
                   </div>
                   <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
                     <span className="text-xs font-medium text-gray-700">
-                      {comment.is_anonymous ? 'Anonymous' : comment.profiles?.username || 'Oakland Resident'}
+                      {comment.is_anonymous ? 'Anonymous' : comment.author_name || 'Oakland Resident'}
                     </span>
                     <p className="text-xs text-gray-700 mt-0.5">{comment.content}</p>
                   </div>
                 </div>
 
                 {/* replies */}
-                {post.comments?.filter(r => r.parent_id === comment.id).map(reply => (
+                {comments[post.id]?.filter(r => r.parent_id === comment.id).map(reply => (
                   <div key={reply.id} className="ml-8 mt-2 flex items-start gap-2">
                     <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-500 flex-shrink-0">
-                      {reply.is_anonymous ? '?' : reply.profiles?.username?.[0]?.toUpperCase() || 'U'}
+                      {reply.is_anonymous ? '?' : reply.author_name?.[0]?.toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
                       <span className="text-xs font-medium text-gray-700">
-                        {reply.is_anonymous ? 'Anonymous' : reply.profiles?.username || 'Oakland Resident'}
+                        {reply.is_anonymous ? 'Anonymous' : reply.author_name || 'Oakland Resident'}
                       </span>
                       <p className="text-xs text-gray-700 mt-0.5">{reply.content}</p>
                     </div>
