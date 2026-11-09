@@ -9,28 +9,34 @@ export default function ResetPage() {
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [hasToken, setHasToken] = useState(false)
+  // 'checking' until Supabase finishes processing the link, then 'ready' or 'invalid'
+  const [status, setStatus] = useState('checking')
   const router = useRouter()
 
   const supabase = createClient()
 
   useEffect(() => {
-    // Supabase includes the access_token in the URL hash after redirect
-    const hash = typeof window !== 'undefined' ? window.location.hash.substring(1) : ''
-    if (!hash) return
-    const params = new URLSearchParams(hash)
-    const access_token = params.get('access_token')
-    const refresh_token = params.get('refresh_token')
+    // The Supabase client exchanges the code in the URL on its own and then
+    // emits PASSWORD_RECOVERY. INITIAL_SESSION tells us whether a session exists at all.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setStatus('ready')
+      } else if (event === 'INITIAL_SESSION') {
+        if (session) {
+          setStatus('ready')
+          return
+        }
+        // Supabase reports link errors (expired / already used) in the URL
+        const params = new URLSearchParams(
+          window.location.search + '&' + window.location.hash.substring(1)
+        )
+        const linkError = params.get('error_description')
+        if (linkError) setError(linkError)
+        setStatus(prev => (prev === 'ready' ? prev : 'invalid'))
+      }
+    })
 
-    if (access_token) {
-      // set session so updateUser works
-      supabase.auth.setSession({ access_token, refresh_token }).then(() => {
-        setHasToken(true)
-      }).catch((err) => {
-        console.error('setSession error', err)
-        setError('Unable to set session from reset link.')
-      })
-    }
+    return () => subscription.unsubscribe()
   }, [supabase])
 
   async function handleReset(e) {
@@ -40,12 +46,12 @@ export default function ResetPage() {
     setMessage('')
 
     try {
-      const { data, error } = await supabase.auth.updateUser({ password })
+      const { error } = await supabase.auth.updateUser({ password })
       if (error) {
         setError(error.message)
       } else {
         setMessage('Password updated. You can now sign in.')
-        // optional: redirect to login after short delay
+        await supabase.auth.signOut()
         setTimeout(() => router.push('/login'), 1500)
       }
     } catch (err) {
@@ -64,8 +70,14 @@ export default function ResetPage() {
         {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">{error}</div>}
         {message && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg mb-4">{message}</div>}
 
-        {!hasToken && !message && (
-          <div className="text-sm text-gray-500 mb-4">No reset token found. Make sure you used the link from your email.</div>
+        {status === 'checking' && (
+          <div className="text-sm text-gray-500 mb-4">Verifying your reset link...</div>
+        )}
+        {status === 'invalid' && !message && (
+          <div className="text-sm text-gray-500 mb-4">
+            This reset link is invalid or has expired.{' '}
+            <Link href="/forgot" className="text-green-700 font-medium">Request a new one</Link>.
+          </div>
         )}
 
         <form onSubmit={handleReset} className="flex flex-col gap-4">
@@ -75,12 +87,13 @@ export default function ResetPage() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
+            minLength={6}
             required
           />
 
           <button
             type="submit"
-            disabled={loading || !hasToken}
+            disabled={loading || status !== 'ready'}
             className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
           >
             {loading ? 'Updating...' : 'Update password'}

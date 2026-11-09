@@ -121,6 +121,9 @@ export default function HomePage() {
   const [commentText, setCommentText] = useState('')
   const [replyTo, setReplyTo] = useState(null)
   const [comments, setComments] = useState({})
+  const [commentAnonymous, setCommentAnonymous] = useState(false)
+  const [reportingPost, setReportingPost] = useState(null)
+  const [reportedPosts, setReportedPosts] = useState({})
 
 
   useEffect(() => {
@@ -130,8 +133,11 @@ export default function HomePage() {
 
   async function getUser() {
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) router.push('/login')
-    setUser(user)
+    if (!user) {
+  router.push('/login')
+  return
+}
+setUser(user)
   }
 
   async function getPosts() {
@@ -184,27 +190,50 @@ async function addComment(postId,parentId = null) {
     user_id: user?.id,
     post_id: postId,
     content: commentText,
-    is_anonymous: isAnonymous,
+    is_anonymous: commentAnonymous,
     parent_id: parentId,
   })
   if (error) console.log(error)
   setCommentText('')
+  setCommentAnonymous(false)
   setReplyTo(null)
   getComments(postId)
 
 }
 
-async function reportPost(postId) {
-   const reason = prompt('Why are you reporting this post?', 'spam')
-  if (!reason) return
+const REPORT_REASONS = [
+  { value: 'spam', label: 'Spam' },
+  { value: 'harassment', label: 'Harassment' },
+  { value: 'misinformation', label: 'Misinformation' },
+  { value: 'other', label: 'Other' },
+]
+
+async function reportPost(postId, reason) {
   const { error } = await supabase.from('reports').insert({
     post_id: postId,
     user_id: user?.id,
-    reason: 'other'
+    reason,
   })
-  if (error) console.log(error)
-  else alert('Post reported. Thank you for keeping Oakland Hub safe.')
+  setReportingPost(null)
+  if (error) {
+    console.log(error)
+    setReportedPosts(prev => ({ ...prev, [postId]: 'error' }))
+  } else {
+    setReportedPosts(prev => ({ ...prev, [postId]: 'done' }))
+  }
 }
+
+const anonymousToggle = (
+  <label className="flex items-center gap-1 cursor-pointer flex-shrink-0">
+    <input
+      type="checkbox"
+      checked={commentAnonymous}
+      onChange={e => setCommentAnonymous(e.target.checked)}
+      className="w-3 h-3 accent-green-800"
+    />
+    <span className="text-xs text-gray-500">Anonymous</span>
+  </label>
+)
 
   async function handleLogout() {
     await supabase.auth.signOut()
@@ -342,14 +371,45 @@ async function reportPost(postId) {
             >
                Comment
             </button>
-            <button 
-              onClick={() => reportPost(post.id)}
-              className="text-xs text-gray-400 hover:text-red-400"
+            <button
+              onClick={() => setReportingPost(reportingPost === post.id ? null : post.id)}
+              disabled={reportedPosts[post.id] === 'done'}
+              className="text-xs text-gray-400 hover:text-red-400 disabled:hover:text-gray-400"
             >
-              ⚑ Report
+              {reportedPosts[post.id] === 'done' ? '⚑ Reported' : '⚑ Report'}
             </button>
           </div>
         </div>
+
+        {/* report reason picker */}
+        {reportingPost === post.id && (
+          <div className="mt-3 border-t border-gray-100 pt-3">
+            <p className="text-xs text-gray-500 mb-2">Why are you reporting this post?</p>
+            <div className="flex flex-wrap gap-2">
+              {REPORT_REASONS.map(r => (
+                <button
+                  key={r.value}
+                  onClick={() => reportPost(post.id, r.value)}
+                  className="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600"
+                >
+                  {r.label}
+                </button>
+              ))}
+              <button
+                onClick={() => setReportingPost(null)}
+                className="text-xs px-3 py-1 text-gray-400"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+        {reportedPosts[post.id] === 'done' && (
+          <p className="text-xs text-gray-400 mt-2">Post reported. Thank you for keeping Oakland Hub safe.</p>
+        )}
+        {reportedPosts[post.id] === 'error' && (
+          <p className="text-xs text-red-500 mt-2">Couldn&apos;t send report. Please try again.</p>
+        )}
 
         {/* comments section */}
         {expandedPost === post.id && (
@@ -404,8 +464,9 @@ async function reportPost(postId) {
                       value={commentText}
                       onChange={e => setCommentText(e.target.value)}
                       placeholder="Write a reply..."
-                      className="flex-1 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
+                      className="flex-1 min-w-0 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
                     />
+                    {anonymousToggle}
                     <button
                       onClick={() => addComment(post.id, comment.id)}
                       className="bg-green-800 text-white text-xs px-3 py-2 rounded-full"
@@ -425,8 +486,9 @@ async function reportPost(postId) {
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
                   placeholder="Write a comment..."
-                  className="flex-1 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
+                  className="flex-1 min-w-0 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
                 />
+                {anonymousToggle}
                 <button
                   onClick={() => addComment(post.id, null)}
                   className="bg-green-800 text-white text-xs px-3 py-2 rounded-full"
