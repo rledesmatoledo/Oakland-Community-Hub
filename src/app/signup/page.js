@@ -10,9 +10,9 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [username, setUsername] = useState('')
-  const [fullName, setFullName] = useState('')
   const [zipCode, setZipCode] = useState('')
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
@@ -28,13 +28,12 @@ export default function SignupPage() {
 
     setLoading(true)
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data, error: signUpError } = await supabase.auth.signUp({
          email, 
          password,
          options: {
             data: {
                 username,
-                full_name: fullName,
                 zip_code: zipCode,
             }
          }
@@ -46,9 +45,12 @@ export default function SignupPage() {
       return
     }
 
-  
-
-  
+    // Email confirmation is on: no session until the user clicks the link
+    if (!data.session) {
+      setMessage('Check your email to confirm your account, then sign in.')
+      setLoading(false)
+      return
+    }
 
     router.push('/')
   }
@@ -67,10 +69,14 @@ export default function SignupPage() {
           </div>
         )}
 
+        {message && (
+          <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg mb-4">
+            {message}
+          </div>
+        )}
+
+      {!message && (
       <form onSubmit={handleSignup} className="flex flex-col gap-4">
-  <input type="text" placeholder="Full name" value={fullName}
-    onChange={e => setFullName(e.target.value)}
-    className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
   <input type="text" placeholder="Username" value={username}
     onChange={e => setUsername(e.target.value)}
     className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
@@ -88,6 +94,7 @@ export default function SignupPage() {
     {loading ? 'Creating account...' : 'Create account'}
   </button>
 </form>
+      )}
 
         <p className="text-center text-sm text-gray-500 mt-6">
           Already have an account?{' '}
