@@ -113,6 +113,12 @@ function CrimeTab() {
   )
 }
 
+function feedPostsQuery(supabase) {
+  return supabase
+    .from('feed_posts')
+    .select('*')
+    .order('created_at', { ascending: false })
+}
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState('feed')
@@ -131,29 +137,35 @@ export default function HomePage() {
   const [reportingPost, setReportingPost] = useState(null)
   const [reportedPosts, setReportedPosts] = useState({})
 
-
-  useEffect(() => {
-    getUser()
-    getPosts()
-  }, [])
-
-  async function getUser() {
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-  router.push('/login')
-  return
-}
-setUser(user)
-  }
-
   async function getPosts() {
-  const { data, error } = await supabase
-    .from('feed_posts')
-    .select('*')
-    .order('created_at', { ascending: false })
+  const { data, error } = await feedPostsQuery(supabase)
   if (error) console.log(error)
   setPosts(data || [])
 }
+
+  useEffect(() => {
+    // Set to true on unmount so late responses are dropped
+    let ignore = false
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (ignore) return
+      if (!user) {
+        router.push('/login')
+        return
+      }
+      setUser(user)
+
+      // Only load the feed once we know someone is signed in
+      feedPostsQuery(supabase).then(({ data, error }) => {
+        if (ignore) return
+        if (error) console.log(error)
+        setPosts(data || [])
+      })
+    })
+
+    return () => { ignore = true }
+  }, [supabase, router])
+
   async function getComments(postId) {
   const { data, error } = await supabase
     .from('feed_comments')
@@ -258,7 +270,7 @@ const anonymousToggle = (
       <div className="bg-green-900 text-white p-4">
         <div className="container mx-auto flex items-center justify-between">
           <h1 className="text-lg font-semibold">Oakland Community Hub</h1>
-          <button onClick={handleLogout} className="text-xs text-green-300 hover:text-white">
+          <button onClick={handleLogout} className="text-xs text-white hover:text-green-100">
             Sign out
           </button>
         </div>
