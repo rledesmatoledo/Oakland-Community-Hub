@@ -6,15 +6,18 @@ import { useRouter } from 'next/navigation'
 function CrimeTab() {
   const [crimes, setCrimes] = useState([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
   const [filter, setFilter] = useState('all')
 
    useEffect(() => {
     fetch('/api/crime')
       .then(r => r.json())
       .then(data => {
-        setCrimes(data)
-        setLoading(false)
+        if (Array.isArray(data)) setCrimes(data)
+        else setError(true)
       })
+      .catch(() => setError(true))
+      .finally(() => setLoading(false))
   }, [])
 
    const crimeTypes = {
@@ -49,11 +52,17 @@ function CrimeTab() {
     </div>
   )
 
+  if (error) return (
+    <div className="text-center py-12 text-gray-400 text-sm">
+      Crime data isn&apos;t available right now
+    </div>
+  )
+
   return (
     <div className="flex flex-col gap-3">
       <div className="bg-red-50 border border-red-100 rounded-xl p-4">
         <div className="text-sm font-medium text-red-800">Oakland Crime Reports</div>
-        <div className="text-xs text-red-600 mt-1">Live data from Oakland PD · Updates every hour</div>
+        <div className="text-xs text-red-600 mt-1">From Oakland PD public data · may be delayed a few days</div>
       </div>
 
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -89,12 +98,9 @@ function CrimeTab() {
                 {crime.description || crime.crimetype}
               </p>
               <p className="text-xs text-gray-500">
-                 {crime.address}, Oakland
+                {crime.block}, Oakland
               </p>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-xs text-gray-400">Case #{crime.casenumber}</span>
-                <span className="text-xs text-gray-400">Beat {crime.policebeat}</span>
-              </div>
+              <p className="text-xs text-gray-400 mt-2">Beat {crime.policebeat}</p>
             </div>
           )
         })}
