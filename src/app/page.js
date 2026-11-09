@@ -137,6 +137,8 @@ export default function HomePage() {
   const [profile, setProfile] = useState(null)
   const [reportingPost, setReportingPost] = useState(null)
   const [reportedPosts, setReportedPosts] = useState({})
+  const [confirmDelete, setConfirmDelete] = useState(null)   // e.g. 'post-12' or 'comment-34'
+  const [deleteErrors, setDeleteErrors] = useState({})
 
   async function getPosts() {
   const { data, error } = await feedPostsQuery(supabase)
@@ -253,6 +255,50 @@ async function reportPost(postId, reason) {
   }
 }
 
+async function deleteItem(kind, id, postId) {
+  const key = `${kind}-${id}`
+  // RLS turns someone else's delete into "0 rows", not an error, so check the count
+  const { error, count } = await supabase
+    .from(kind === 'post' ? 'posts' : 'comments')
+    .delete({ count: 'exact' })
+    .eq('id', id)
+  setConfirmDelete(null)
+  if (error || count === 0) {
+    if (error) console.log(error)
+    setDeleteErrors(prev => ({ ...prev, [key]: true }))
+    return
+  }
+  if (kind === 'post') getPosts()
+  else getComments(postId)
+}
+
+function deleteControl(kind, id, postId) {
+  const key = `${kind}-${id}`
+  if (confirmDelete === key) {
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span className="text-xs text-gray-500">Delete?</span>
+        <button onClick={() => deleteItem(kind, id, postId)} className="text-xs font-medium text-red-600">Yes</button>
+        <button onClick={() => setConfirmDelete(null)} className="text-xs text-gray-400">No</button>
+      </span>
+    )
+  }
+  return (
+    <span className="inline-flex items-center gap-2">
+      <button
+        onClick={() => {
+          setConfirmDelete(key)
+          setDeleteErrors(prev => ({ ...prev, [key]: false }))
+        }}
+        className="text-xs text-gray-400 hover:text-red-500"
+      >
+        Delete
+      </button>
+      {deleteErrors[key] && <span className="text-xs text-red-500">Couldn&apos;t delete. Try again.</span>}
+    </span>
+  )
+}
+
 const anonymousToggle = (
   <label className="flex items-center gap-1 cursor-pointer flex-shrink-0">
     <input
@@ -355,9 +401,12 @@ const anonymousToggle = (
             : post.author_name || 'Oakland Resident'}
             </span>
           </div>
-          <span className="text-xs text-gray-400">
-            {new Date(post.created_at).toLocaleDateString()}
-          </span>
+          <div className="flex items-center gap-3">
+            {post.is_mine && deleteControl('post', post.id)}
+            <span className="text-xs text-gray-400">
+              {new Date(post.created_at).toLocaleDateString()}
+            </span>
+          </div>
         </div>
 
        {/* post text */}
@@ -468,20 +517,26 @@ const anonymousToggle = (
                         {reply.is_anonymous ? 'Anonymous' : reply.author_name || 'Oakland Resident'}
                       </span>
                       <p className="text-xs text-gray-700 mt-0.5">{reply.content}</p>
+                      {reply.is_mine && (
+                        <div className="mt-1">{deleteControl('comment', reply.id, post.id)}</div>
+                      )}
                     </div>
                   </div>
                 ))}
 
                 {/* reply button */}
-                <button
-                  onClick={() => {
-                    setReplyTo(replyTo === comment.id ? null : comment.id)
-                    setCommentText('')
-                  }}
-                  className="text-xs text-gray-400 ml-8 mt-1 hover:text-green-700"
-                >
-                  ↩ Reply
-                </button>
+                <div className="ml-8 mt-1 flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setReplyTo(replyTo === comment.id ? null : comment.id)
+                      setCommentText('')
+                    }}
+                    className="text-xs text-gray-400 hover:text-green-700"
+                  >
+                    ↩ Reply
+                  </button>
+                  {comment.is_mine && deleteControl('comment', comment.id, post.id)}
+                </div>
 
                 {/* reply input */}
                 {replyTo === comment.id && (
