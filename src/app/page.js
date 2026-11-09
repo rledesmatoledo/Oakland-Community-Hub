@@ -128,12 +128,13 @@ export default function HomePage() {
   const [posts, setPosts] = useState([])
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('general')
-  const [isAnonymous, setIsAnonymous] = useState(false)
+  const [isAnonymous, setIsAnonymous] = useState(true)
   const [expandedPost, setExpandedPost] = useState(null)
   const [commentText, setCommentText] = useState('')
   const [replyTo, setReplyTo] = useState(null)
   const [comments, setComments] = useState({})
-  const [commentAnonymous, setCommentAnonymous] = useState(false)
+  const [commentAnonymous, setCommentAnonymous] = useState(true)
+  const [profile, setProfile] = useState(null)
   const [reportingPost, setReportingPost] = useState(null)
   const [reportedPosts, setReportedPosts] = useState({})
 
@@ -161,6 +162,17 @@ export default function HomePage() {
         if (error) console.log(error)
         setPosts(data || [])
       })
+
+      supabase
+        .from('profiles')
+        .select('username, zip_code')
+        .eq('id', user.id)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (ignore) return
+          if (error) console.log(error)
+          setProfile(data)
+        })
     })
 
     return () => { ignore = true }
@@ -185,7 +197,7 @@ export default function HomePage() {
   })
   if(error) console.log(error)
   setContent('')
-  setIsAnonymous(false)
+  setIsAnonymous(true)
   getPosts()
 }
 
@@ -213,7 +225,7 @@ async function addComment(postId,parentId = null) {
   })
   if (error) console.log(error)
   setCommentText('')
-  setCommentAnonymous(false)
+  setCommentAnonymous(true)
   setReplyTo(null)
   getComments(postId)
 
@@ -268,11 +280,8 @@ const anonymousToggle = (
     <div className="min-h-screen bg-gray-50">
 
       <div className="bg-green-900 text-white p-4">
-        <div className="container mx-auto flex items-center justify-between">
+        <div className="container mx-auto">
           <h1 className="text-lg font-semibold">Oakland Community Hub</h1>
-          <button onClick={handleLogout} className="text-xs text-white hover:text-green-100">
-            Sign out
-          </button>
         </div>
       </div>
 
@@ -524,22 +533,45 @@ const anonymousToggle = (
 </div>
 )}
 
-        {activeTab === 'crime' &&  <CrimeTab />}
-        {activeTab === 'events' && <div>Events goes here</div>}
-        {activeTab === 'map' && <div>Map goes here</div>}
-        {activeTab === 'profile' && <div>Profile goes here</div>}
+        {activeTab === 'safety' && <CrimeTab />}
+        {activeTab === 'me' && (
+          <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-4">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {profile?.username || 'Oakland Resident'}
+              </div>
+              <div className="text-xs text-gray-500 mt-0.5">
+                {profile?.zip_code || 'Oakland'}
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+              Anonymous by default: your posts and comments don&apos;t show your username
+              unless you choose to share it.
+            </p>
+            <button
+              onClick={handleLogout}
+              className="self-start text-xs text-red-600 border border-red-200 rounded-full px-4 py-2 hover:bg-red-50"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex">
-        {['feed','crime','events','map','profile'].map(tab => (
+        {[
+          { key: 'feed', label: 'Feed' },
+          { key: 'safety', label: 'Safety' },
+          { key: 'me', label: 'Me' },
+        ].map(tab => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 py-3 text-xs font-medium capitalize ${
-              activeTab === tab ? 'text-green-800' : 'text-gray-400'
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex-1 py-3 text-xs font-medium ${
+              activeTab === tab.key ? 'text-green-800' : 'text-gray-400'
             }`}
           >
-            {tab}
+            {tab.label}
           </button>
         ))}
       </div>
