@@ -27,7 +27,10 @@ create policy "Users can delete own comments" on public.comments
   for delete using (auth.uid() = user_id);
 
 -- 2. Time zone fix (2026-11-02): timestamptz columns, views recreated
-alter table public.posts    alter column created_at type timestamptz using created_at at time zone 'UTC';
+drop view public.feed_posts;
+drop view public.feed_comments;
+
+alter table public.posts   alter column created_at type timestamptz using created_at at time zone 'UTC';
 alter table public.comments alter column created_at type timestamptz using created_at at time zone 'UTC';
 alter table public.upvotes  alter column created_at type timestamptz using created_at at time zone 'UTC';
 alter table public.reports  alter column created_at type timestamptz using created_at at time zone 'UTC';

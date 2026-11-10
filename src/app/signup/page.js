@@ -1,8 +1,9 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 const OAKLAND_ZIPS = ['94601','94602','94603','94604','94605','94606','94607','94608','94609','94610','94611','94612','94613','94614','94615','94617','94618','94619','94620','94621']
 
@@ -14,6 +15,8 @@ export default function SignupPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState(null)
+  const turnstileRef = useRef(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -32,6 +35,7 @@ export default function SignupPage() {
          email, 
          password,
          options: {
+            captchaToken,
             data: {
                 username,
                 zip_code: zipCode,
@@ -42,6 +46,9 @@ export default function SignupPage() {
     if (signUpError) {
       setError(signUpError.message)
       setLoading(false)
+      // Tokens are single-use: get a fresh one for the next attempt
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
       return
     }
 
@@ -83,13 +90,28 @@ export default function SignupPage() {
   <input type="email" placeholder="Email" value={email}
     onChange={e => setEmail(e.target.value)}
     className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-  <input type="password" placeholder="Password" value={password}
-    onChange={e => setPassword(e.target.value)}
-    className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
+  <div className="flex flex-col gap-1">
+    <input type="password" placeholder="Password" value={password}
+      onChange={e => setPassword(e.target.value)}
+      aria-describedby="password-hint"
+      minLength={8}
+      className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
+    <p id="password-hint" className="text-xs text-gray-500">
+      At least 8 characters, with uppercase, lowercase, and a number.
+    </p>
+  </div>
   <input type="text" placeholder="Oakland zip code (e.g. 94601)" value={zipCode}
     onChange={e => setZipCode(e.target.value)}
     className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-  <button type="submit" disabled={loading}
+  <Turnstile
+    ref={turnstileRef}
+    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+    onSuccess={setCaptchaToken}
+    onExpire={() => setCaptchaToken(null)}
+    onError={() => setCaptchaToken(null)}
+    options={{ theme: 'light' }}
+  />
+  <button type="submit" disabled={loading || !captchaToken}
     className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
     {loading ? 'Creating account...' : 'Create account'}
   </button>

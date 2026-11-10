@@ -1,14 +1,17 @@
 'use client'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState(null)
+  const turnstileRef = useRef(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -17,11 +20,18 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    })
 
     if (error) {
       setError(error.message)
       setLoading(false)
+      // Tokens are single-use: get a fresh one for the next attempt
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
     } else {
       router.push('/')
     }
@@ -61,9 +71,17 @@ export default function LoginPage() {
           <div className="text-right">
             <Link href="/forgot" className="text-sm text-green-700 hover:underline">Forgot password?</Link>
           </div>
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            options={{ theme: 'light' }}
+          />
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !captchaToken}
             className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
           >
             {loading ? 'Signing in...' : 'Sign in'}

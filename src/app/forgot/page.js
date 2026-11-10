@@ -1,13 +1,16 @@
 "use client"
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
+import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function ForgotPage() {
   const [email, setEmail] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState(null)
+  const turnstileRef = useRef(null)
 
   const supabase = createClient()
 
@@ -19,7 +22,7 @@ export default function ForgotPage() {
 
     try {
       const redirectTo = window.location.origin + '/reset'
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo, captchaToken })
       if (error) {
         setError(error.message)
       } else {
@@ -29,6 +32,10 @@ export default function ForgotPage() {
       setError(err.message || 'Unexpected error')
     } finally {
       setLoading(false)
+      // Tokens are single-use. The form stays visible after success too,
+      // so reset every time to allow "send again".
+      turnstileRef.current?.reset()
+      setCaptchaToken(null)
     }
   }
 
@@ -51,9 +58,17 @@ export default function ForgotPage() {
             required
           />
 
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            options={{ theme: 'light' }}
+          />
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !captchaToken}
             className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
           >
             {loading ? 'Sending...' : 'Send reset link'}

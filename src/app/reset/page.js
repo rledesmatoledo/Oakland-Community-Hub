@@ -81,15 +81,21 @@ export default function ResetPage() {
         )}
 
         <form onSubmit={handleReset} className="flex flex-col gap-4">
-          <input
-            type="password"
-            placeholder="New password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
-            minLength={6}
-            required
-          />
+          <div className="flex flex-col gap-1">
+            <input
+              type="password"
+              placeholder="New password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              aria-describedby="password-hint"
+              className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
+              minLength={8}
+              required
+            />
+            <p id="password-hint" className="text-xs text-gray-500">
+              At least 8 characters, with uppercase, lowercase, and a number.
+            </p>
+          </div>
 
           <button
             type="submit"
