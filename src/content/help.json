@@ -1,0 +1,64 @@
+{
+  "title": "Help nearby",
+  "subtitle": "Free support for Oakland neighbors. No account needed.",
+  "reachNow": {
+    "heading": "Reach someone now",
+    "cards": [
+      { "number": "911", "label": "Emergency", "tel": "911", "danger": true },
+      {
+        "number": "988",
+        "label": "Crisis line · call or text",
+        "tel": "988",
+        "link": { "label": "Text", "url": "sms:988" }
+      },
+      { "number": "211", "label": "Food, housing & more", "tel": "211" },
+      {
+        "number": "OAK 311",
+        "label": "Potholes, streetlights",
+        "tel": "+15106155566",
+        "link": { "label": "Report online", "url": "https://www.oaklandca.gov/311" }
+      }
+    ]
+  },
+  "everyday": {
+    "heading": "Everyday support",
+    "rows": [
+      {
+        "title": "Food & groceries",
+        "description": "Free groceries, hot meals, and CalFresh help",
+        "url": "TODO: food resources link"
+      },
+      {
+        "title": "Housing",
+        "description": "Shelter, rent help, and tenant support",
+        "url": "TODO: housing resources link"
+      }
+    ]
+  },
+  "rights": {
+    "heading": "Know your rights",
+    "note": "From official and legal-aid sources",
+    "rows": [
+      {
+        "title": "As a tenant",
+        "description": "Oakland Rent Adjustment Program",
+        "url": "TODO: Oakland Rent Adjustment Program link"
+      },
+      {
+        "title": "At work",
+        "description": "California Labor Commissioner",
+        "url": "TODO: California Labor Commissioner link"
+      },
+      {
+        "title": "If police stop you",
+        "description": "ACLU of Northern California",
+        "url": "TODO: ACLU of Northern California link"
+      },
+      {
+        "title": "Immigration",
+        "description": "Immigrant Legal Resource Center",
+        "url": "TODO: Immigrant Legal Resource Center link"
+      }
+    ]
+  }
+}

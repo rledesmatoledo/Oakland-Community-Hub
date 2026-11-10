@@ -1,24 +1,72 @@
-export default function MeTab({ profile, onLogout }) {
+import Switch from './Switch'
+
+const ALERTS = [
+  { id: 'alert-safety', label: 'Safety alerts near me' },
+  { id: 'alert-replies', label: 'Replies to my posts' },
+]
+
+function Section({ title, children }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-4">
-      <div>
-        <div className="text-sm font-medium text-gray-900">
-          {profile?.username || 'Oakland Resident'}
-        </div>
-        <div className="text-xs text-gray-500 mt-0.5">
-          {profile?.zip_code || 'Oakland'}
-        </div>
-      </div>
-      <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
-        Anonymous by default: your posts and comments don&apos;t show your username
-        unless you choose to share it.
+    <section className="mt-8">
+      <h2 className="font-display font-bold text-xl text-ink tracking-[-0.01em] mb-1">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+export default function MeTab({ profile, loading, onLogout }) {
+  return (
+    <div>
+      <h1 className="font-display font-extrabold text-3xl text-ink tracking-[-0.02em]">
+        {/* blank (but same height) until the profile loads */}
+        {loading ? ' ' : profile?.username || 'Oakland Resident'}
+      </h1>
+      <p className="flex items-center gap-1.5 text-sm text-muted mt-1">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-brand" aria-hidden="true">
+          <path d="M5 12.5l4.5 4.5L19 7.5" />
+        </svg>
+        Verified · {loading ? '' : profile?.zip_code || 'Oakland'}
       </p>
+
+      <Section title="Alerts">
+        <ul className="divide-y divide-line">
+          {ALERTS.map(a => (
+            <li key={a.id} className="py-2 flex items-center justify-between gap-4">
+              <div>
+                <p id={a.id} className="text-base text-ink">{a.label}</p>
+                <p className="text-sm text-muted">Coming soon</p>
+              </div>
+              <Switch checked={false} labelledBy={a.id} disabled />
+            </li>
+          ))}
+        </ul>
+      </Section>
+
+      <Section title="Privacy">
+        <ul className="divide-y divide-line">
+          <li className="py-3">
+            <p className="text-base text-ink">Anonymous by default</p>
+            <p className="text-sm text-muted mt-0.5">
+              Your posts and comments don&apos;t show your username unless you choose to share it.
+            </p>
+          </li>
+          <li className="py-3 flex items-center justify-between gap-4">
+            <p className="text-base text-ink">Language</p>
+            <p className="text-base text-muted">English</p>
+          </li>
+        </ul>
+      </Section>
+
       <button
         onClick={onLogout}
-        className="self-start text-xs text-red-600 border border-red-200 rounded-full px-4 py-2 hover:bg-red-50"
+        className="mt-8 min-h-11 px-5 rounded-full border border-field-border text-base font-medium text-ink"
       >
         Sign out
       </button>
+
+      <p className="text-sm text-muted text-center mt-10 pb-4">
+        Made in Oakland · Not affiliated with the City of Oakland
+      </p>
     </div>
   )
 }

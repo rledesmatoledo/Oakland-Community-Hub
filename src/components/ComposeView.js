@@ -1,3 +1,4 @@
+import Switch from './Switch'
 import { COMPOSE_CATEGORIES, categoryDisplay } from '@/lib/categories'
 
 // Full-screen compose view, opened from "+ Post" in the header.
@@ -70,20 +71,7 @@ export default function ComposeView({
             {isAnonymous ? 'Neighbors see your zip, not your name.' : 'Neighbors see your username.'}
           </p>
         </div>
-        <button
-          type="button"
-          role="switch"
-          aria-checked={isAnonymous}
-          aria-labelledby="anon-label"
-          onClick={() => onAnonymousChange(!isAnonymous)}
-          className="min-h-11 flex items-center flex-shrink-0"
-        >
-          <span className={`w-11 h-6 rounded-full p-0.5 flex transition-colors ${
-            isAnonymous ? 'bg-brand justify-end' : 'bg-field-border justify-start'
-          }`}>
-            <span className="w-5 h-5 rounded-full bg-surface" />
-          </span>
-        </button>
+        <Switch checked={isAnonymous} onChange={onAnonymousChange} labelledBy="anon-label" />
       </div>
 
       {postError && (

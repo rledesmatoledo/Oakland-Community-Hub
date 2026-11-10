@@ -345,7 +345,7 @@ export default function HomePage() {
 
         {activeTab === 'safety' && <SafetyTab />}
         {activeTab === 'help' && <HelpTab />}
-        {activeTab === 'me' && <MeTab profile={profile} onLogout={handleLogout} />}
+        {activeTab === 'me' && <MeTab profile={profile} loading={!profileLoaded} onLogout={handleLogout} />}
       </div>
 
       <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />

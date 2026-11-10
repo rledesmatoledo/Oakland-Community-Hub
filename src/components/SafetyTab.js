@@ -1,32 +1,100 @@
 'use client'
 import { useState, useEffect } from 'react'
+import TextTabs from './TextTabs'
 
-const crimeTypes = {
-  'THEFT': { color: 'bg-amber-100 text-amber-700', label: 'Theft' },
-  'ASSAULT': { color: 'bg-red-100 text-red-700', label: 'Assault' },
-  'ROBBERY': { color: 'bg-red-100 text-red-700', label: 'Robbery' },
-  'BURGLARY': { color: 'bg-orange-100 text-orange-700', label: 'Burglary' },
-  'VANDALISM': { color: 'bg-purple-100 text-purple-700', label: 'Vandalism' },
-  'WEAPONS': { color: 'bg-red-100 text-red-700', label: 'Weapons' },
-  'VEHICLE': { color: 'bg-blue-100 text-blue-700', label: 'Vehicle' },
-  'DOMESTIC': { color: 'bg-pink-100 text-pink-700', label: 'Domestic' },
+// Friendlier names for the dataset's crimetype values; anything else is shown
+// in sentence case ("STOLEN VEHICLE" -> "Stolen vehicle").
+const TYPE_LABELS = {
+  'BURG - AUTO': 'Car break-in',
+  'BURG - RESIDENTIAL': 'Home burglary',
+  'BURG - COMMERCIAL': 'Business burglary',
+  'BURG - OTHER': 'Burglary',
+  'RECOVERED O/S STOLEN': 'Recovered stolen vehicle',
+  'RECOVERED VEHICLE - OAKLAND STOLEN': 'Recovered stolen vehicle',
+  'STOLEN AND RECOVERED VEHICLE': 'Stolen and recovered vehicle',
+  'DUI': 'DUI',
 }
 
-function getCrimeType(crimetype) {
-  if (!crimetype) return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
+const VIOLENT = ['ASSAULT', 'ROBBERY', 'WEAPONS', 'HOMICIDE', 'RAPE', 'KIDNAPPING', 'DOMESTIC', 'BRANDISHING', 'THREATS']
+const PROPERTY = ['THEFT', 'BURG', 'VANDALISM', 'STOLEN', 'ARSON', 'VEHICLE']
+
+function typeLabel(crimetype) {
+  if (!crimetype) return 'Other'
   const upper = crimetype.toUpperCase()
-  for (const [key, val] of Object.entries(crimeTypes)) {
-    if (upper.includes(key)) return val
-  }
-  return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
+  if (TYPE_LABELS[upper]) return TYPE_LABELS[upper]
+  const lower = crimetype.toLowerCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
 }
 
-const filters = ['all', 'theft', 'assault', 'vehicle', 'weapons', 'vandalism']
+// Dot color: violent = danger, property and vehicle = safety orange, other = muted
+function typeDot(crimetype) {
+  const upper = (crimetype || '').toUpperCase()
+  if (VIOLENT.some(k => upper.includes(k))) return 'bg-danger'
+  if (PROPERTY.some(k => upper.includes(k))) return 'bg-cat-safety'
+  return 'bg-muted'
+}
 
-// Formerly CrimeTab in app/page.js. Still fetches /api/crime itself on mount
-// (every time the Safety tab opens), as before.
+const FILTERS = [
+  { key: 'all', label: 'All', match: null },
+  { key: 'theft', label: 'Theft', match: ['THEFT'] },
+  { key: 'assault', label: 'Assault', match: ['ASSAULT'] },
+  { key: 'vehicle', label: 'Vehicle', match: ['VEHICLE', 'BURG - AUTO'] },
+  { key: 'weapons', label: 'Weapons', match: ['WEAPONS'] },
+  { key: 'vandalism', label: 'Vandalism', match: ['VANDALISM'] },
+]
+
+function timeAgo(datetime, now) {
+  const then = new Date(datetime)
+  const mins = Math.max(0, Math.round((now - then) / 60000))
+  if (mins < 1) return 'Just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.round(hours / 24)
+  if (days < 7) return `${days}d ago`
+  return then.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+
+// "2026-10-01" / "2026-10-08" -> "Oct 1–8"
+function periodLabel({ start, end }) {
+  const fmt = (s, opts) => new Date(`${s}T12:00:00Z`).toLocaleDateString('en-US', { timeZone: 'UTC', ...opts })
+  const startText = fmt(start, { month: 'short', day: 'numeric' })
+  return start === end ? startText : `${startText}–${fmt(end, { day: 'numeric' })}`
+}
+
+function Trend({ trend }) {
+  const diff = trend.thisMonth - trend.lastMonth
+  const compared = periodLabel(trend.lastPeriod)
+  return (
+    <section className="mt-6" aria-label={`${trend.label} this month`}>
+      <p className="text-base text-ink">{trend.label} this month</p>
+      <p className="font-display font-extrabold text-5xl text-ink tracking-[-0.02em] mt-1">
+        {trend.thisMonth}
+      </p>
+      <p className="text-sm text-muted mt-1">
+        citywide · {periodLabel(trend.thisPeriod)}
+      </p>
+      <p className="text-sm text-ink mt-1">
+        {diff === 0 ? (
+          <>Same as {compared}</>
+        ) : (
+          <>
+            <span className={diff < 0 ? 'text-brand' : 'text-danger'} aria-hidden="true">
+              {diff < 0 ? '↓' : '↑'}
+            </span>{' '}
+            {Math.abs(diff)} {diff < 0 ? 'fewer' : 'more'} than {compared}
+          </>
+        )}
+      </p>
+    </section>
+  )
+}
+
+// Fetches /api/crime itself on mount (every time the Safety tab opens).
 export default function SafetyTab() {
-  const [crimes, setCrimes] = useState([])
+  const [incidents, setIncidents] = useState([])
+  const [trend, setTrend] = useState(null)
+  const [now, setNow] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
   const [filter, setFilter] = useState('all')
@@ -35,79 +103,63 @@ export default function SafetyTab() {
     fetch('/api/crime')
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setCrimes(data)
-        else setError(true)
+        if (Array.isArray(data?.incidents)) {
+          setIncidents(data.incidents)
+          setTrend(data.trend)
+          setNow(Date.now())
+        } else {
+          setError(true)
+        }
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false))
   }, [])
 
-  const filtered = filter === 'all' ? crimes : crimes.filter(c =>
-    c.crimetype?.toUpperCase().includes(filter.toUpperCase())
-  )
-
-  if (loading) return (
-    <div className="text-center py-12 text-gray-400 text-sm">
-      Loading Oakland crime data...
-    </div>
-  )
-
-  if (error) return (
-    <div className="text-center py-12 text-gray-400 text-sm">
-      Crime data isn&apos;t available right now
-    </div>
-  )
+  const active = FILTERS.find(f => f.key === filter)
+  const filtered = active.match
+    ? incidents.filter(c => active.match.some(k => c.crimetype?.toUpperCase().includes(k)))
+    : incidents
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-        <div className="text-sm font-medium text-red-800">Oakland Crime Reports</div>
-        <div className="text-xs text-red-600 mt-1">From Oakland PD public data · may be delayed a few days</div>
-      </div>
+    <div>
+      <h1 className="font-display font-extrabold text-3xl text-ink tracking-[-0.02em]">Safety</h1>
+      <p className="text-sm text-muted mt-1">Oakland Police public data · may be delayed a few days</p>
 
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {filters.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full border capitalize flex-shrink-0 ${
-              filter === f
-                ? 'bg-red-500 text-white border-red-500'
-                : 'text-gray-500 border-gray-200'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
+      {loading ? (
+        <p className="text-base text-muted py-12 text-center">Loading Oakland crime data...</p>
+      ) : error ? (
+        <p className="text-base text-muted py-12 text-center">Crime data isn&apos;t available right now</p>
+      ) : (
+        <>
+          {trend && <Trend trend={trend} />}
 
-      <div className="flex flex-col gap-3">
-        {filtered.map((crime, i) => {
-          const type = getCrimeType(crime.crimetype)
-          return (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 border-l-4 border-l-red-400">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${type.color}`}>
-                  {type.label}
-                </span>
-                <span className="text-xs text-gray-400 flex-shrink-0">
-                  {new Date(crime.datetime).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-800 font-medium mb-1">
-                {crime.description || crime.crimetype}
-              </p>
-              <p className="text-xs text-gray-500">
-                {crime.block}, Oakland
-              </p>
-              <p className="text-xs text-gray-400 mt-2">Beat {crime.policebeat}</p>
-            </div>
-          )
-        })}
-      </div>
+          <TextTabs tabs={FILTERS} active={filter} onChange={setFilter} className="mt-6" />
 
-      <p className="text-xs text-gray-400 text-center pb-4">
-        Source: City of Oakland Open Data Portal
+          {filtered.length === 0 ? (
+            <p className="text-base text-muted py-8 text-center">
+              No {active.label.toLowerCase()} incidents in the latest reports.
+            </p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {filtered.map((crime, i) => (
+                <li key={i} className="py-3">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="flex items-center gap-2 text-base font-medium text-ink">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 self-center ${typeDot(crime.crimetype)}`} aria-hidden="true" />
+                      {typeLabel(crime.crimetype)}
+                    </span>
+                    <span className="text-sm text-muted flex-shrink-0">{timeAgo(crime.datetime, now)}</span>
+                  </div>
+                  <p className="text-sm text-muted mt-0.5 pl-4">{crime.block}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+
+      <p className="text-sm text-muted text-center pt-6 pb-4">
+        Locations are shown by block, never an exact address.
       </p>
     </div>
   )
