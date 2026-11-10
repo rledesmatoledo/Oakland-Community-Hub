@@ -2,116 +2,12 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-
-function CrimeTab() {
-  const [crimes, setCrimes] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(false)
-  const [filter, setFilter] = useState('all')
-
-   useEffect(() => {
-    fetch('/api/crime')
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setCrimes(data)
-        else setError(true)
-      })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false))
-  }, [])
-
-   const crimeTypes = {
-    'THEFT': { color: 'bg-amber-100 text-amber-700', label: 'Theft' },
-    'ASSAULT': { color: 'bg-red-100 text-red-700', label: 'Assault' },
-    'ROBBERY': { color: 'bg-red-100 text-red-700', label: 'Robbery' },
-    'BURGLARY': { color: 'bg-orange-100 text-orange-700', label: 'Burglary' },
-    'VANDALISM': { color: 'bg-purple-100 text-purple-700', label: 'Vandalism' },
-    'WEAPONS': { color: 'bg-red-100 text-red-700', label: 'Weapons' },
-    'VEHICLE': { color: 'bg-blue-100 text-blue-700', label: 'Vehicle' },
-    'DOMESTIC': { color: 'bg-pink-100 text-pink-700', label: 'Domestic' },
-  }
-
-  function getCrimeType(crimetype) {
-    if (!crimetype) return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
-    const upper = crimetype.toUpperCase()
-    for (const [key, val] of Object.entries(crimeTypes)) {
-      if (upper.includes(key)) return val
-    }
-    return { color: 'bg-gray-100 text-gray-700', label: 'Other' }
-  }
-
-  const filters = ['all', 'theft', 'assault', 'vehicle', 'weapons', 'vandalism']
-
-  const filtered = filter === 'all' ? crimes : crimes.filter(c =>
-    c.crimetype?.toUpperCase().includes(filter.toUpperCase())
-  )
-
-   if (loading) return (
-    <div className="text-center py-12 text-gray-400 text-sm">
-      Loading Oakland crime data...
-    </div>
-  )
-
-  if (error) return (
-    <div className="text-center py-12 text-gray-400 text-sm">
-      Crime data isn&apos;t available right now
-    </div>
-  )
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="bg-red-50 border border-red-100 rounded-xl p-4">
-        <div className="text-sm font-medium text-red-800">Oakland Crime Reports</div>
-        <div className="text-xs text-red-600 mt-1">From Oakland PD public data · may be delayed a few days</div>
-      </div>
-
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {filters.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`text-xs px-3 py-1.5 rounded-full border capitalize flex-shrink-0 ${
-              filter === f
-                ? 'bg-red-500 text-white border-red-500'
-                : 'text-gray-500 border-gray-200'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-3">
-        {filtered.map((crime, i) => {
-          const type = getCrimeType(crime.crimetype)
-          return (
-            <div key={i} className="bg-white rounded-xl border border-gray-200 p-4 border-l-4 border-l-red-400">
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${type.color}`}>
-                  {type.label}
-                </span>
-                <span className="text-xs text-gray-400 flex-shrink-0">
-                  {new Date(crime.datetime).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="text-sm text-gray-800 font-medium mb-1">
-                {crime.description || crime.crimetype}
-              </p>
-              <p className="text-xs text-gray-500">
-                {crime.block}, Oakland
-              </p>
-              <p className="text-xs text-gray-400 mt-2">Beat {crime.policebeat}</p>
-            </div>
-          )
-        })}
-      </div>
-
-      <p className="text-xs text-gray-400 text-center pb-4">
-        Source: City of Oakland Open Data Portal
-      </p>
-    </div>
-  )
-}
+import BottomNav from '@/components/BottomNav'
+import ComposeBox from '@/components/ComposeBox'
+import PostCard from '@/components/PostCard'
+import CommentThread from '@/components/CommentThread'
+import SafetyTab from '@/components/SafetyTab'
+import MeTab from '@/components/MeTab'
 
 function feedPostsQuery(supabase) {
   return supabase
@@ -141,10 +37,10 @@ export default function HomePage() {
   const [deleteErrors, setDeleteErrors] = useState({})
 
   async function getPosts() {
-  const { data, error } = await feedPostsQuery(supabase)
-  if (error) console.log(error)
-  setPosts(data || [])
-}
+    const { data, error } = await feedPostsQuery(supabase)
+    if (error) console.log(error)
+    setPosts(data || [])
+  }
 
   useEffect(() => {
     // Set to true on unmount so late responses are dropped
@@ -181,146 +77,104 @@ export default function HomePage() {
   }, [supabase, router])
 
   async function getComments(postId) {
-  const { data, error } = await supabase
-    .from('feed_comments')
-    .select('*')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true })
-  if (error) console.log(error)
-  setComments(prev => ({ ...prev, [postId]: data || [] }))
-}
-  async function createPost() {
-  if (!content.trim()) return
-  const { error } = await supabase.from('posts').insert({
-    user_id: user?.id,
-    content,
-    category,
-    is_anonymous: isAnonymous,
-  })
-  if(error) console.log(error)
-  setContent('')
-  setIsAnonymous(true)
-  getPosts()
-}
-
-
-
-async function toggleUpvote(post) {
-  if (post.i_upvoted) {
-    await supabase.from('upvotes')
-      .delete().eq('post_id', post.id).eq('user_id', user.id)
-  } else {
-    await supabase.from('upvotes')
-      .insert({ post_id: post.id, user_id: user.id })
-  }
-  getPosts()
-}
-
-async function addComment(postId,parentId = null) {
-  if (!commentText.trim()) return
-  const { error } = await supabase.from('comments').insert({
-    user_id: user?.id,
-    post_id: postId,
-    content: commentText,
-    is_anonymous: commentAnonymous,
-    parent_id: parentId,
-  })
-  if (error) console.log(error)
-  setCommentText('')
-  setCommentAnonymous(true)
-  setReplyTo(null)
-  getComments(postId)
-
-}
-
-const REPORT_REASONS = [
-  { value: 'spam', label: 'Spam' },
-  { value: 'harassment', label: 'Harassment' },
-  { value: 'misinformation', label: 'Misinformation' },
-  { value: 'other', label: 'Other' },
-]
-
-async function reportPost(postId, reason) {
-  const { error } = await supabase.from('reports').insert({
-    post_id: postId,
-    user_id: user?.id,
-    reason,
-  })
-  setReportingPost(null)
-  if (error) {
-    console.log(error)
-    setReportedPosts(prev => ({ ...prev, [postId]: 'error' }))
-  } else {
-    setReportedPosts(prev => ({ ...prev, [postId]: 'done' }))
-  }
-}
-
-async function deleteItem(kind, id, postId) {
-  const key = `${kind}-${id}`
-  // RLS turns someone else's delete into "0 rows", not an error, so check the count
-  const { error, count } = await supabase
-    .from(kind === 'post' ? 'posts' : 'comments')
-    .delete({ count: 'exact' })
-    .eq('id', id)
-  setConfirmDelete(null)
-  if (error || count === 0) {
+    const { data, error } = await supabase
+      .from('feed_comments')
+      .select('*')
+      .eq('post_id', postId)
+      .order('created_at', { ascending: true })
     if (error) console.log(error)
-    setDeleteErrors(prev => ({ ...prev, [key]: true }))
-    return
+    setComments(prev => ({ ...prev, [postId]: data || [] }))
   }
-  if (kind === 'post') getPosts()
-  else getComments(postId)
-}
 
-function deleteControl(kind, id, postId) {
-  const key = `${kind}-${id}`
-  if (confirmDelete === key) {
-    return (
-      <span className="inline-flex items-center gap-2">
-        <span className="text-xs text-gray-500">Delete?</span>
-        <button onClick={() => deleteItem(kind, id, postId)} className="text-xs font-medium text-red-600">Yes</button>
-        <button onClick={() => setConfirmDelete(null)} className="text-xs text-gray-400">No</button>
-      </span>
-    )
+  async function createPost() {
+    if (!content.trim()) return
+    const { error } = await supabase.from('posts').insert({
+      user_id: user?.id,
+      content,
+      category,
+      is_anonymous: isAnonymous,
+    })
+    if (error) console.log(error)
+    setContent('')
+    setIsAnonymous(true)
+    getPosts()
   }
-  return (
-    <span className="inline-flex items-center gap-2">
-      <button
-        onClick={() => {
-          setConfirmDelete(key)
-          setDeleteErrors(prev => ({ ...prev, [key]: false }))
-        }}
-        className="text-xs text-gray-400 hover:text-red-500"
-      >
-        Delete
-      </button>
-      {deleteErrors[key] && <span className="text-xs text-red-500">Couldn&apos;t delete. Try again.</span>}
-    </span>
-  )
-}
 
-const anonymousToggle = (
-  <label className="flex items-center gap-1 cursor-pointer flex-shrink-0">
-    <input
-      type="checkbox"
-      checked={commentAnonymous}
-      onChange={e => setCommentAnonymous(e.target.checked)}
-      className="w-3 h-3 accent-green-800"
-    />
-    <span className="text-xs text-gray-500">Anonymous</span>
-  </label>
-)
+  async function toggleUpvote(post) {
+    if (post.i_upvoted) {
+      await supabase.from('upvotes')
+        .delete().eq('post_id', post.id).eq('user_id', user.id)
+    } else {
+      await supabase.from('upvotes')
+        .insert({ post_id: post.id, user_id: user.id })
+    }
+    getPosts()
+  }
+
+  async function addComment(postId, parentId = null) {
+    if (!commentText.trim()) return
+    const { error } = await supabase.from('comments').insert({
+      user_id: user?.id,
+      post_id: postId,
+      content: commentText,
+      is_anonymous: commentAnonymous,
+      parent_id: parentId,
+    })
+    if (error) console.log(error)
+    setCommentText('')
+    setCommentAnonymous(true)
+    setReplyTo(null)
+    getComments(postId)
+  }
+
+  async function reportPost(postId, reason) {
+    const { error } = await supabase.from('reports').insert({
+      post_id: postId,
+      user_id: user?.id,
+      reason,
+    })
+    setReportingPost(null)
+    if (error) {
+      console.log(error)
+      setReportedPosts(prev => ({ ...prev, [postId]: 'error' }))
+    } else {
+      setReportedPosts(prev => ({ ...prev, [postId]: 'done' }))
+    }
+  }
+
+  async function deleteItem(kind, id, postId) {
+    const key = `${kind}-${id}`
+    // RLS turns someone else's delete into "0 rows", not an error, so check the count
+    const { error, count } = await supabase
+      .from(kind === 'post' ? 'posts' : 'comments')
+      .delete({ count: 'exact' })
+      .eq('id', id)
+    setConfirmDelete(null)
+    if (error || count === 0) {
+      if (error) console.log(error)
+      setDeleteErrors(prev => ({ ...prev, [key]: true }))
+      return
+    }
+    if (kind === 'post') getPosts()
+    else getComments(postId)
+  }
+
+  // Shared by every DeleteControl (posts and comments)
+  const deleteProps = {
+    confirmDelete,
+    deleteErrors,
+    onRequestDelete: key => {
+      setConfirmDelete(key)
+      setDeleteErrors(prev => ({ ...prev, [key]: false }))
+    },
+    onCancelDelete: () => setConfirmDelete(null),
+    onDelete: deleteItem,
+  }
 
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
   }
-  
-
-  
-
-
-
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -333,304 +187,66 @@ const anonymousToggle = (
 
       <div className="p-4 pb-20">
         {activeTab === 'feed' && (
-  <div>
-    
-    <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
-      <textarea
-        value={content}        
-        onChange={e => setContent(e.target.value)}
-        placeholder="Share something with your neighborhood..."
-        className="w-full text-sm text-gray-900 outline-none resize-none placeholder-gray-400"
-        rows={3}
-      />
-      <div className="flex justify-end mt-2">
-        {['general','safety','events','resources'].map(cat => (
-          <button
-            key={cat}
-            onClick={() => setCategory(cat)}
-            className={`text-xs px-3 py-1 rounded-full border capitalize ${
-              category === cat
-                ? cat === 'safety' ? 'bg-red-500 text-white border-red-500' :
-                  cat === 'events' ? 'bg-blue-500 text-white border-blue-500' :
-                  cat === 'resources' ? 'bg-amber-500 text-white border-amber-500' :
-                  'bg-green-800 text-white border-green-800'
-                : 'text-gray-500 border-gray-200'
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-         <div className="flex items-center justify-between mt-2">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isAnonymous}
-            onChange={e => setIsAnonymous(e.target.checked)}
-            className="w-3 h-3 accent-green-800"
-          />
-          <span className="text-xs text-gray-500">Post anonymously</span>
-        </label>
-        <button onClick={createPost} className="bg-green-800 text-white text-xs px-4 py-2 rounded-full">
-          Post
-        </button>
-      </div>
-    </div>
-    
-    {posts.length === 0 ? (
-  // no posts yet (show empty message)
-  <p className="text-sm text-gray-400 text-center mt-8">No posts yet. Be the first!</p>
-) : (
-  // loop through every post and render a card
-  <div className="flex flex-col gap-3">
-    {posts.map(post => (
-      <div key={post.id} className="bg-white rounded-xl border border-gray-200 p-4">
-        
-        {/* header row avatar, username, date */}
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            {/* first letter of username as avatar */}
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-            post.is_anonymous ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-800'
-              }`}>
-            {post.is_anonymous ? '?' : post.author_name?.[0]?.toUpperCase() || 'U'}
-            </div>
-            <span className="text-xs font-medium text-gray-700">
-            {post.is_anonymous
-              ? 'Anonymous · ' + (post.zip_code || 'Oakland')
-            : post.author_name || 'Oakland Resident'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            {post.is_mine && deleteControl('post', post.id)}
-            <span className="text-xs text-gray-400">
-              {new Date(post.created_at).toLocaleDateString()}
-            </span>
-          </div>
-        </div>
+          <div>
+            <ComposeBox
+              content={content}
+              onContentChange={setContent}
+              category={category}
+              onCategoryChange={setCategory}
+              isAnonymous={isAnonymous}
+              onAnonymousChange={setIsAnonymous}
+              onPost={createPost}
+            />
 
-       {/* post text */}
-        <p className="text-gray-900 text-sm mb-2">{post.content}</p>
-
-        {/* bottom row  badge and action buttons */}
-        <div className="flex items-center justify-between mt-2">
-          <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${
-            post.category === 'safety' ? 'bg-red-100 text-red-700' :
-            post.category === 'events' ? 'bg-blue-100 text-blue-700' :
-            post.category === 'resources' ? 'bg-amber-100 text-amber-700' :
-            'bg-green-100 text-green-700'
-          }`}>
-            {post.category}
-          </span>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => toggleUpvote(post)}
-              className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full border ${
-              post.i_upvoted              
-            ?  'text-green-700 border-green-200 bg-green-50' 
-                 : 'text-gray-400 border-gray-200'
-             }`}
->
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={post.i_upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
-           <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
-            </svg>
-            {post.upvote_count}
-            </button>
-            <button
-              onClick={() => {
-                setExpandedPost(expandedPost === post.id ? null : post.id)
-                getComments(post.id)
-              }}
-              className="text-xs text-gray-400"
-            >
-               Comment
-            </button>
-            <button
-              onClick={() => setReportingPost(reportingPost === post.id ? null : post.id)}
-              disabled={reportedPosts[post.id] === 'done'}
-              className="text-xs text-gray-400 hover:text-red-400 disabled:hover:text-gray-400"
-            >
-              {reportedPosts[post.id] === 'done' ? '⚑ Reported' : '⚑ Report'}
-            </button>
-          </div>
-        </div>
-
-        {/* report reason picker */}
-        {reportingPost === post.id && (
-          <div className="mt-3 border-t border-gray-100 pt-3">
-            <p className="text-xs text-gray-500 mb-2">Why are you reporting this post?</p>
-            <div className="flex flex-wrap gap-2">
-              {REPORT_REASONS.map(r => (
-                <button
-                  key={r.value}
-                  onClick={() => reportPost(post.id, r.value)}
-                  className="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600"
-                >
-                  {r.label}
-                </button>
-              ))}
-              <button
-                onClick={() => setReportingPost(null)}
-                className="text-xs px-3 py-1 text-gray-400"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-        {reportedPosts[post.id] === 'done' && (
-          <p className="text-xs text-gray-400 mt-2">Post reported. Thank you for keeping Oakland Hub safe.</p>
-        )}
-        {reportedPosts[post.id] === 'error' && (
-          <p className="text-xs text-red-500 mt-2">Couldn&apos;t send report. Please try again.</p>
-        )}
-
-        {/* comments section */}
-        {expandedPost === post.id && (
-          <div className="mt-3 border-t border-gray-100 pt-3">
-
-            {/* existing comments */}
-            {comments[post.id]?.filter(c => !c.parent_id).map(comment => (
-              <div key={comment.id} className="mb-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center text-xs font-medium text-green-800 flex-shrink-0">
-                    {comment.is_anonymous ? '?' : comment.author_name?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
-                    <span className="text-xs font-medium text-gray-700">
-                      {comment.is_anonymous ? 'Anonymous' : comment.author_name || 'Oakland Resident'}
-                    </span>
-                    <p className="text-xs text-gray-700 mt-0.5">{comment.content}</p>
-                  </div>
-                </div>
-
-                {/* replies */}
-                {comments[post.id]?.filter(r => r.parent_id === comment.id).map(reply => (
-                  <div key={reply.id} className="ml-8 mt-2 flex items-start gap-2">
-                    <div className="w-5 h-5 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-500 flex-shrink-0">
-                      {reply.is_anonymous ? '?' : reply.author_name?.[0]?.toUpperCase() || 'U'}
-                    </div>
-                    <div className="flex-1 bg-gray-50 rounded-xl px-3 py-2">
-                      <span className="text-xs font-medium text-gray-700">
-                        {reply.is_anonymous ? 'Anonymous' : reply.author_name || 'Oakland Resident'}
-                      </span>
-                      <p className="text-xs text-gray-700 mt-0.5">{reply.content}</p>
-                      {reply.is_mine && (
-                        <div className="mt-1">{deleteControl('comment', reply.id, post.id)}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-
-                {/* reply button */}
-                <div className="ml-8 mt-1 flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      setReplyTo(replyTo === comment.id ? null : comment.id)
-                      setCommentText('')
+            {posts.length === 0 ? (
+              <p className="text-sm text-gray-400 text-center mt-8">No posts yet. Be the first!</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {posts.map(post => (
+                  <PostCard
+                    key={post.id}
+                    post={post}
+                    onToggleUpvote={() => toggleUpvote(post)}
+                    isExpanded={expandedPost === post.id}
+                    onToggleComments={() => {
+                      setExpandedPost(expandedPost === post.id ? null : post.id)
+                      getComments(post.id)
                     }}
-                    className="text-xs text-gray-400 hover:text-green-700"
+                    isReporting={reportingPost === post.id}
+                    onToggleReport={() => setReportingPost(reportingPost === post.id ? null : post.id)}
+                    onCancelReport={() => setReportingPost(null)}
+                    reportStatus={reportedPosts[post.id]}
+                    onReport={reason => reportPost(post.id, reason)}
+                    deleteProps={deleteProps}
                   >
-                    ↩ Reply
-                  </button>
-                  {comment.is_mine && deleteControl('comment', comment.id, post.id)}
-                </div>
-
-                {/* reply input */}
-                {replyTo === comment.id && (
-                  <div className="ml-8 mt-2 flex gap-2">
-                    <input
-                      type="text"
-                      value={commentText}
-                      onChange={e => setCommentText(e.target.value)}
-                      placeholder="Write a reply..."
-                      className="flex-1 min-w-0 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
+                    <CommentThread
+                      postId={post.id}
+                      comments={comments[post.id]}
+                      replyTo={replyTo}
+                      onToggleReply={commentId => {
+                        setReplyTo(replyTo === commentId ? null : commentId)
+                        setCommentText('')
+                      }}
+                      commentText={commentText}
+                      onCommentTextChange={setCommentText}
+                      commentAnonymous={commentAnonymous}
+                      onCommentAnonymousChange={setCommentAnonymous}
+                      onAddComment={parentId => addComment(post.id, parentId)}
+                      deleteProps={deleteProps}
                     />
-                    {anonymousToggle}
-                    <button
-                      onClick={() => addComment(post.id, comment.id)}
-                      className="bg-green-800 text-white text-xs px-3 py-2 rounded-full"
-                    >
-                      Send
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
-
-            {/* new comment input */}
-            {!replyTo && (
-              <div className="flex gap-2 mt-2">
-                <input
-                  type="text"
-                  value={commentText}
-                  onChange={e => setCommentText(e.target.value)}
-                  placeholder="Write a comment..."
-                  className="flex-1 min-w-0 text-xs border border-gray-200 rounded-full px-3 py-2 outline-none text-gray-900 placeholder-gray-400"
-                />
-                {anonymousToggle}
-                <button
-                  onClick={() => addComment(post.id, null)}
-                  className="bg-green-800 text-white text-xs px-3 py-2 rounded-full"
-                >
-                  Send
-                </button>
+                  </PostCard>
+                ))}
               </div>
             )}
           </div>
         )}
-      </div>
-    ))}
-  </div>
-)}
-</div>
-)}
 
-        {activeTab === 'safety' && <CrimeTab />}
-        {activeTab === 'me' && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4 flex flex-col gap-4">
-            <div>
-              <div className="text-sm font-medium text-gray-900">
-                {profile?.username || 'Oakland Resident'}
-              </div>
-              <div className="text-xs text-gray-500 mt-0.5">
-                {profile?.zip_code || 'Oakland'}
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
-              Anonymous by default: your posts and comments don&apos;t show your username
-              unless you choose to share it.
-            </p>
-            <button
-              onClick={handleLogout}
-              className="self-start text-xs text-red-600 border border-red-200 rounded-full px-4 py-2 hover:bg-red-50"
-            >
-              Sign out
-            </button>
-          </div>
-        )}
+        {activeTab === 'safety' && <SafetyTab />}
+        {activeTab === 'me' && <MeTab profile={profile} onLogout={handleLogout} />}
       </div>
 
-      <div className="fixed bottom-0 w-full bg-white border-t border-gray-200 flex">
-        {[
-          { key: 'feed', label: 'Feed' },
-          { key: 'safety', label: 'Safety' },
-          { key: 'me', label: 'Me' },
-        ].map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`flex-1 py-3 text-xs font-medium ${
-              activeTab === tab.key ? 'text-green-800' : 'text-gray-400'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <BottomNav activeTab={activeTab} onTabChange={setActiveTab} />
 
     </div>
   )
-} 
+}
