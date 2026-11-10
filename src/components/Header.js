@@ -1,12 +1,9 @@
-import OakLogo from './OakLogo'
+import { Wordmark } from './OakLogo'
 
 export default function Header({ zipCode, loading, onCompose }) {
   return (
     <header className="bg-canvas border-b border-line px-4 pt-4 pb-4">
-      <div className="flex items-center gap-2">
-        <OakLogo />
-        <span className="font-display font-bold text-lg text-ink tracking-[-0.01em]">Oakland Hub</span>
-      </div>
+      <Wordmark />
 
       <div className="flex items-end justify-between gap-4 mt-4">
         <div>

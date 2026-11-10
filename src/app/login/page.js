@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AuthShell, { ErrorNotice, inputClass, primaryButtonClass, linkClass, helperClass } from '@/components/AuthShell'
 import { Turnstile } from '@marsidev/react-turnstile'
 
 export default function LoginPage() {
@@ -38,61 +39,52 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-md">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Oakland Hub</h1>
-          <p className="text-gray-500 mt-1">Sign in to your community</p>
+    <AuthShell title="Sign in to your community">
+      {error && <ErrorNotice>{error}</ErrorNotice>}
+
+      <form onSubmit={handleLogin} className="flex flex-col gap-4">
+        <input
+          type="email"
+          placeholder="Email"
+          aria-label="Email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          className={inputClass}
+          required
+        />
+        <input
+          type="password"
+          placeholder="Password"
+          aria-label="Password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          className={inputClass}
+          required
+        />
+        <div className="text-right">
+          <Link href="/forgot" className={`text-sm ${linkClass} inline-flex items-center min-h-11`}>Forgot password?</Link>
         </div>
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+          onSuccess={setCaptchaToken}
+          onExpire={() => setCaptchaToken(null)}
+          onError={() => setCaptchaToken(null)}
+          options={{ theme: 'light' }}
+        />
+        <button
+          type="submit"
+          disabled={loading || !captchaToken}
+          className={primaryButtonClass}
+        >
+          {loading ? 'Signing in...' : 'Sign in'}
+        </button>
+      </form>
 
-        {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleLogin} className="flex flex-col gap-4">
-          <input
-            type="email"
-            placeholder="Email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
-            required
-          />
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
-            required
-          />
-          <div className="text-right">
-            <Link href="/forgot" className="text-sm text-green-700 hover:underline">Forgot password?</Link>
-          </div>
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-            onSuccess={setCaptchaToken}
-            onExpire={() => setCaptchaToken(null)}
-            onError={() => setCaptchaToken(null)}
-            options={{ theme: 'light' }}
-          />
-          <button
-            type="submit"
-            disabled={loading || !captchaToken}
-            className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-          >
-            {loading ? 'Signing in...' : 'Sign in'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-green-700 font-medium">Sign up</Link>
-        </p>
-      </div>
-    </div>
+      <p className={`text-center ${helperClass} mt-6`}>
+        Don&apos;t have an account?{' '}
+        <Link href="/signup" className={linkClass}>Sign up</Link>
+      </p>
+    </AuthShell>
   )
 }

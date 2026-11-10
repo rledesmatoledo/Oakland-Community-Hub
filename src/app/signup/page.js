@@ -3,6 +3,7 @@ import { useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AuthShell, { ErrorNotice, SuccessNotice, inputClass, primaryButtonClass, linkClass, helperClass } from '@/components/AuthShell'
 import { Turnstile } from '@marsidev/react-turnstile'
 
 const OAKLAND_ZIPS = ['94601','94602','94603','94604','94605','94606','94607','94608','94609','94610','94611','94612','94613','94614','94615','94617','94618','94619','94620','94621']
@@ -63,66 +64,51 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-md">
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900">Join Oakland Hub</h1>
-          <p className="text-gray-500 mt-1">For Oakland residents only</p>
-        </div>
+    <AuthShell title="Join Oakland Hub" subtitle="For Oakland residents only">
+      {error && <ErrorNotice>{error}</ErrorNotice>}
 
-        {error && (
-          <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">
-            {error}
-          </div>
-        )}
-
-        {message && (
-          <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg mb-4">
-            {message}
-          </div>
-        )}
+      {message && <SuccessNotice>{message}</SuccessNotice>}
 
       {!message && (
-      <form onSubmit={handleSignup} className="flex flex-col gap-4">
-  <input type="text" placeholder="Username" value={username}
-    onChange={e => setUsername(e.target.value)}
-    className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-  <input type="email" placeholder="Email" value={email}
-    onChange={e => setEmail(e.target.value)}
-    className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-  <div className="flex flex-col gap-1">
-    <input type="password" placeholder="Password" value={password}
-      onChange={e => setPassword(e.target.value)}
-      aria-describedby="password-hint"
-      minLength={8}
-      className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-    <p id="password-hint" className="text-xs text-gray-500">
-      At least 8 characters, with uppercase, lowercase, and a number.
-    </p>
-  </div>
-  <input type="text" placeholder="Oakland zip code (e.g. 94601)" value={zipCode}
-    onChange={e => setZipCode(e.target.value)}
-    className="border border-gray-800 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600 placeholder-gray-500 bg-gray-50" required />
-  <Turnstile
-    ref={turnstileRef}
-    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-    onSuccess={setCaptchaToken}
-    onExpire={() => setCaptchaToken(null)}
-    onError={() => setCaptchaToken(null)}
-    options={{ theme: 'light' }}
-  />
-  <button type="submit" disabled={loading || !captchaToken}
-    className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50">
-    {loading ? 'Creating account...' : 'Create account'}
-  </button>
-</form>
+        <form onSubmit={handleSignup} className="flex flex-col gap-4">
+          <input type="text" placeholder="Username" aria-label="Username" value={username}
+            onChange={e => setUsername(e.target.value)}
+            className={inputClass} required />
+          <input type="email" placeholder="Email" aria-label="Email" value={email}
+            onChange={e => setEmail(e.target.value)}
+            className={inputClass} required />
+          <div className="flex flex-col gap-1">
+            <input type="password" placeholder="Password" aria-label="Password" value={password}
+              onChange={e => setPassword(e.target.value)}
+              aria-describedby="password-hint"
+              minLength={8}
+              className={inputClass} required />
+            <p id="password-hint" className={helperClass}>
+              At least 8 characters, with uppercase, lowercase, and a number.
+            </p>
+          </div>
+          <input type="text" placeholder="Oakland zip code (e.g. 94601)" aria-label="Oakland zip code" value={zipCode}
+            onChange={e => setZipCode(e.target.value)}
+            className={inputClass} required />
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+            onSuccess={setCaptchaToken}
+            onExpire={() => setCaptchaToken(null)}
+            onError={() => setCaptchaToken(null)}
+            options={{ theme: 'light' }}
+          />
+          <button type="submit" disabled={loading || !captchaToken}
+            className={primaryButtonClass}>
+            {loading ? 'Creating account...' : 'Create account'}
+          </button>
+        </form>
       )}
 
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Already have an account?{' '}
-          <Link href="/login" className="text-green-700 font-medium">Sign in</Link>
-        </p>
-      </div>
-    </div>
+      <p className={`text-center ${helperClass} mt-6`}>
+        Already have an account?{' '}
+        <Link href="/login" className={linkClass}>Sign in</Link>
+      </p>
+    </AuthShell>
   )
 }

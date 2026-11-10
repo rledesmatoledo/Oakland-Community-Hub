@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import AuthShell, { ErrorNotice, SuccessNotice, inputClass, primaryButtonClass, linkClass, helperClass } from '@/components/AuthShell'
 
 export default function ResetPage() {
   const [password, setPassword] = useState('')
@@ -62,55 +63,54 @@ export default function ResetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 w-full max-w-md">
-        <h1 className="text-2xl font-semibold text-gray-900 mb-2">Create a new password</h1>
-        <p className="text-gray-500 text-sm mb-6">Enter a new password to finish resetting your account.</p>
+    <AuthShell
+      title="Create a new password"
+      subtitle="Enter a new password to finish resetting your account."
+    >
+      {error && <ErrorNotice>{error}</ErrorNotice>}
+      {message && <SuccessNotice>{message}</SuccessNotice>}
 
-        {error && <div className="bg-red-50 text-red-600 text-sm p-3 rounded-lg mb-4">{error}</div>}
-        {message && <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg mb-4">{message}</div>}
-
-        {status === 'checking' && (
-          <div className="text-sm text-gray-500 mb-4">Verifying your reset link...</div>
-        )}
-        {status === 'invalid' && !message && (
-          <div className="text-sm text-gray-500 mb-4">
-            This reset link is invalid or has expired.{' '}
-            <Link href="/forgot" className="text-green-700 font-medium">Request a new one</Link>.
-          </div>
-        )}
-
-        <form onSubmit={handleReset} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1">
-            <input
-              type="password"
-              placeholder="New password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              aria-describedby="password-hint"
-              className="border border-gray-200 rounded-lg px-4 py-3 text-sm outline-none focus:border-green-600"
-              minLength={8}
-              required
-            />
-            <p id="password-hint" className="text-xs text-gray-500">
-              At least 8 characters, with uppercase, lowercase, and a number.
-            </p>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading || status !== 'ready'}
-            className="bg-green-800 text-white rounded-lg py-3 text-sm font-medium hover:bg-green-700 disabled:opacity-50"
-          >
-            {loading ? 'Updating...' : 'Update password'}
-          </button>
-        </form>
-
-        <p className="text-center text-sm text-gray-500 mt-6">
-          Back to{' '}
-          <Link href="/login" className="text-green-700 font-medium">Sign in</Link>
+      {status === 'checking' && (
+        <p className={`${helperClass} mb-4`}>Verifying your reset link...</p>
+      )}
+      {status === 'invalid' && !message && (
+        <p className="text-base text-muted mb-4">
+          This reset link is invalid or has expired.{' '}
+          <Link href="/forgot" className={linkClass}>Request a new one</Link>.
         </p>
-      </div>
-    </div>
+      )}
+
+      <form onSubmit={handleReset} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-1">
+          <input
+            type="password"
+            placeholder="New password"
+            aria-label="New password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            aria-describedby="password-hint"
+            className={inputClass}
+            minLength={8}
+            required
+          />
+          <p id="password-hint" className={helperClass}>
+            At least 8 characters, with uppercase, lowercase, and a number.
+          </p>
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || status !== 'ready'}
+          className={primaryButtonClass}
+        >
+          {loading ? 'Updating...' : 'Update password'}
+        </button>
+      </form>
+
+      <p className={`text-center ${helperClass} mt-6`}>
+        Back to{' '}
+        <Link href="/login" className={linkClass}>Sign in</Link>
+      </p>
+    </AuthShell>
   )
 }

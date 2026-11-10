@@ -18,3 +18,13 @@ export default function OakLogo({ size = 28, className = '' }) {
     </svg>
   )
 }
+
+// Logo mark + "Oakland Hub" wordmark
+export function Wordmark() {
+  return (
+    <div className="flex items-center gap-2">
+      <OakLogo />
+      <span className="font-display font-bold text-lg text-ink tracking-[-0.01em]">Oakland Hub</span>
+    </div>
+  )
+}
