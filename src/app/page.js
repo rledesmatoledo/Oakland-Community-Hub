@@ -1,13 +1,17 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import BottomNav from '@/components/BottomNav'
+import Header from '@/components/Header'
+import FeedFilters from '@/components/FeedFilters'
+import HelpTab from '@/components/HelpTab'
 import ComposeBox from '@/components/ComposeBox'
 import PostCard from '@/components/PostCard'
 import CommentThread from '@/components/CommentThread'
 import SafetyTab from '@/components/SafetyTab'
 import MeTab from '@/components/MeTab'
+import { FEED_FILTERS } from '@/lib/categories'
 
 function feedPostsQuery(supabase) {
   return supabase
@@ -31,10 +35,14 @@ export default function HomePage() {
   const [comments, setComments] = useState({})
   const [commentAnonymous, setCommentAnonymous] = useState(true)
   const [profile, setProfile] = useState(null)
+  const [profileLoaded, setProfileLoaded] = useState(false)
   const [reportingPost, setReportingPost] = useState(null)
   const [reportedPosts, setReportedPosts] = useState({})
   const [confirmDelete, setConfirmDelete] = useState(null)   // e.g. 'post-12' or 'comment-34'
   const [deleteErrors, setDeleteErrors] = useState({})
+  const [feedFilter, setFeedFilter] = useState('all')
+  const composeRef = useRef(null)
+  const [composeRequest, setComposeRequest] = useState(0)
 
   async function getPosts() {
     const { data, error } = await feedPostsQuery(supabase)
@@ -70,11 +78,26 @@ export default function HomePage() {
           if (ignore) return
           if (error) console.log(error)
           setProfile(data)
+          setProfileLoaded(true)
         })
     })
 
     return () => { ignore = true }
   }, [supabase, router])
+
+  // "+ Post" in the header: switch to the feed (if needed), then focus the compose box
+  useEffect(() => {
+    if (composeRequest === 0) return
+    const box = composeRef.current
+    if (!box) return
+    box.focus({ preventScroll: true })
+    box.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [composeRequest])
+
+  function openCompose() {
+    setActiveTab('feed')
+    setComposeRequest(n => n + 1)
+  }
 
   async function getComments(postId) {
     const { data, error } = await supabase
@@ -176,14 +199,15 @@ export default function HomePage() {
     router.push('/login')
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
+  const activeFilter = FEED_FILTERS.find(f => f.key === feedFilter)
+  const visiblePosts = activeFilter.category
+    ? posts.filter(p => p.category === activeFilter.category)
+    : posts
 
-      <div className="bg-green-900 text-white p-4">
-        <div className="container mx-auto">
-          <h1 className="text-lg font-semibold">Oakland Community Hub</h1>
-        </div>
-      </div>
+  return (
+    <div className="min-h-screen">
+
+      <Header zipCode={profile?.zip_code} loading={!profileLoaded} onCompose={openCompose} />
 
       <div className="p-4 pb-20">
         {activeTab === 'feed' && (
@@ -196,18 +220,27 @@ export default function HomePage() {
               isAnonymous={isAnonymous}
               onAnonymousChange={setIsAnonymous}
               onPost={createPost}
+              textareaRef={composeRef}
             />
+
+            <FeedFilters activeFilter={feedFilter} onFilterChange={setFeedFilter} />
 
             {posts.length === 0 ? (
               <p className="text-sm text-gray-400 text-center mt-8">No posts yet. Be the first!</p>
+            ) : visiblePosts.length === 0 ? (
+              <p className="text-base text-muted text-center mt-8">
+                No {activeFilter.label} posts right now.
+              </p>
             ) : (
               <div className="flex flex-col gap-3">
-                {posts.map(post => (
+                {visiblePosts.map(post => (
                   <PostCard
                     key={post.id}
                     post={post}
                     onToggleUpvote={() => toggleUpvote(post)}
                     isExpanded={expandedPost === post.id}
+                    // Loaded comments are fresher than the count from the last feed fetch
+                    replyCount={comments[post.id]?.length ?? post.comment_count}
                     onToggleComments={() => {
                       setExpandedPost(expandedPost === post.id ? null : post.id)
                       getComments(post.id)
@@ -236,12 +269,16 @@ export default function HomePage() {
                     />
                   </PostCard>
                 ))}
+                <p className="text-sm text-muted text-center py-6">
+                  That&apos;s everything on your block for now.
+                </p>
               </div>
             )}
           </div>
         )}
 
         {activeTab === 'safety' && <SafetyTab />}
+        {activeTab === 'help' && <HelpTab />}
         {activeTab === 'me' && <MeTab profile={profile} onLogout={handleLogout} />}
       </div>
 

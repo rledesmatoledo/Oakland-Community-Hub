@@ -8,10 +8,12 @@ export default function ComposeBox({
   isAnonymous,
   onAnonymousChange,
   onPost,
+  textareaRef,
 }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
       <textarea
+        ref={textareaRef}
         value={content}
         onChange={e => onContentChange(e.target.value)}
         placeholder="Share something with your neighborhood..."

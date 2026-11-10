@@ -1,4 +1,5 @@
 import DeleteControl from './DeleteControl'
+import { categoryDisplay } from '@/lib/categories'
 
 const REPORT_REASONS = [
   { value: 'spam', label: 'Spam' },
@@ -7,6 +8,12 @@ const REPORT_REASONS = [
   { value: 'other', label: 'Other' },
 ]
 
+function repliesLabel(count) {
+  const n = Number(count) || 0
+  if (n === 0) return 'No replies'
+  return `${n} ${n === 1 ? 'reply' : 'replies'}`
+}
+
 // One feed post. The comment section is passed in as children and only
 // rendered while the post is expanded.
 export default function PostCard({
@@ -14,6 +21,7 @@ export default function PostCard({
   onToggleUpvote,
   isExpanded,
   onToggleComments,
+  replyCount,
   isReporting,
   onToggleReport,
   onCancelReport,
@@ -22,94 +30,81 @@ export default function PostCard({
   deleteProps,
   children,
 }) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+  const cat = categoryDisplay(post.category)
+  const author = post.is_anonymous
+    ? 'Anonymous · ' + (post.zip_code || 'Oakland')
+    : post.author_name || 'Oakland Resident'
 
-      {/* header row avatar, username, date */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          {/* first letter of username as avatar */}
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium ${
-            post.is_anonymous ? 'bg-gray-100 text-gray-500' : 'bg-green-100 text-green-800'
-          }`}>
-            {post.is_anonymous ? '?' : post.author_name?.[0]?.toUpperCase() || 'U'}
-          </div>
-          <span className="text-xs font-medium text-gray-700">
-            {post.is_anonymous
-              ? 'Anonymous · ' + (post.zip_code || 'Oakland')
-              : post.author_name || 'Oakland Resident'}
-          </span>
-        </div>
-        <div className="flex items-center gap-3">
-          {post.is_mine && <DeleteControl kind="post" id={post.id} {...deleteProps} />}
-          <span className="text-xs text-gray-400">
-            {new Date(post.created_at).toLocaleDateString()}
-          </span>
-        </div>
+  return (
+    <article className="bg-surface border border-line rounded-xl p-4">
+
+      {/* category + date */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink">
+          <span className={`w-2 h-2 rounded-full ${cat.dot}`} aria-hidden="true" />
+          {cat.label}
+        </span>
+        <span className="text-sm text-muted">
+          {new Date(post.created_at).toLocaleDateString()}
+        </span>
       </div>
 
       {/* post text */}
-      <p className="text-gray-900 text-sm mb-2">{post.content}</p>
+      <p className="text-base text-ink mt-2">{post.content}</p>
 
-      {/* bottom row  badge and action buttons */}
-      <div className="flex items-center justify-between mt-2">
-        <span className={`text-xs px-2 py-1 rounded-full font-medium capitalize ${
-          post.category === 'safety' ? 'bg-red-100 text-red-700' :
-          post.category === 'events' ? 'bg-blue-100 text-blue-700' :
-          post.category === 'resources' ? 'bg-amber-100 text-amber-700' :
-          'bg-green-100 text-green-700'
-        }`}>
-          {post.category}
-        </span>
+      {/* author */}
+      <p className="text-sm text-muted mt-2">{author}</p>
 
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onToggleUpvote}
-            className={`flex items-center gap-1 text-sm px-2 py-1 rounded-full border ${
-              post.i_upvoted
-                ? 'text-green-700 border-green-200 bg-green-50'
-                : 'text-gray-400 border-gray-200'
-            }`}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill={post.i_upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-              <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
-              <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
-            </svg>
-            {post.upvote_count}
-          </button>
-          <button
-            onClick={onToggleComments}
-            className="text-xs text-gray-400"
-          >
-            Comment
-          </button>
-          <button
-            onClick={onToggleReport}
-            disabled={reportStatus === 'done'}
-            className="text-xs text-gray-400 hover:text-red-400 disabled:hover:text-gray-400"
-          >
-            {reportStatus === 'done' ? '⚑ Reported' : '⚑ Report'}
-          </button>
-        </div>
+      {/* actions */}
+      <div className="flex items-center gap-5 mt-1 flex-wrap">
+        <button
+          onClick={onToggleUpvote}
+          aria-pressed={post.i_upvoted}
+          aria-label={post.i_upvoted ? 'Remove upvote' : 'Upvote'}
+          className={`min-h-11 flex items-center gap-1.5 text-sm font-medium ${
+            post.i_upvoted ? 'text-accent-ink' : 'text-muted'
+          }`}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill={post.i_upvoted ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/>
+            <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+          </svg>
+          {post.upvote_count}
+        </button>
+        <button
+          onClick={onToggleComments}
+          aria-expanded={isExpanded}
+          className="min-h-11 text-sm text-muted hover:text-ink"
+        >
+          {repliesLabel(replyCount)}
+        </button>
+        <button
+          onClick={onToggleReport}
+          disabled={reportStatus === 'done'}
+          className="min-h-11 text-sm text-muted hover:text-danger disabled:hover:text-muted"
+        >
+          {reportStatus === 'done' ? 'Reported' : 'Report'}
+        </button>
+        {post.is_mine && <DeleteControl kind="post" id={post.id} variant="card" {...deleteProps} />}
       </div>
 
       {/* report reason picker */}
       {isReporting && (
-        <div className="mt-3 border-t border-gray-100 pt-3">
-          <p className="text-xs text-gray-500 mb-2">Why are you reporting this post?</p>
-          <div className="flex flex-wrap gap-2">
+        <div className="mt-2 border-t border-line-soft pt-3">
+          <p className="text-sm text-muted">Why are you reporting this post?</p>
+          <div className="flex flex-wrap gap-x-5">
             {REPORT_REASONS.map(r => (
               <button
                 key={r.value}
                 onClick={() => onReport(r.value)}
-                className="text-xs px-3 py-1 rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-600"
+                className="min-h-11 text-sm text-ink hover:text-danger"
               >
                 {r.label}
               </button>
             ))}
             <button
               onClick={onCancelReport}
-              className="text-xs px-3 py-1 text-gray-400"
+              className="min-h-11 text-sm text-muted"
             >
               Cancel
             </button>
@@ -117,14 +112,14 @@ export default function PostCard({
         </div>
       )}
       {reportStatus === 'done' && (
-        <p className="text-xs text-gray-400 mt-2">Post reported. Thank you for keeping Oakland Hub safe.</p>
+        <p className="text-sm text-muted mt-1">Post reported. Thank you for keeping Oakland Hub safe.</p>
       )}
       {reportStatus === 'error' && (
-        <p className="text-xs text-red-500 mt-2">Couldn&apos;t send report. Please try again.</p>
+        <p className="text-sm text-danger mt-1">Couldn&apos;t send report. Please try again.</p>
       )}
 
       {/* comments section */}
       {isExpanded && children}
-    </div>
+    </article>
   )
 }

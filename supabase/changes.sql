@@ -78,3 +78,17 @@ $$;
 
 -- 4. Allow deletes (2026-11-09); RLS still limits each user to their own rows
 grant delete on public.posts, public.comments to authenticated;
+
+-- 5. Comment count on posts (2026-11-10): feed_posts gets comment_count
+create or replace view public.feed_posts as
+   select
+     p.id, p.content, p.category, p.created_at, p.is_anonymous,
+     case when p.is_anonymous then null else pr.username end as author_name,
+     pr.zip_code,
+     (select count(*) from public.upvotes u where u.post_id = p.id) as upvote_count,
+     exists (select 1 from public.upvotes u
+             where u.post_id = p.id and u.user_id = auth.uid()) as i_upvoted,
+     (p.user_id = auth.uid()) as is_mine,
+     (select count(*) from public.comments c where c.post_id = p.id) as comment_count
+   from public.posts p
+   join public.profiles pr on pr.id = p.user_id;
