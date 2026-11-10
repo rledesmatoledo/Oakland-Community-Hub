@@ -18,3 +18,6 @@ export const FEED_FILTERS = [
   { key: 'happening', label: 'Happening', category: 'events' },
   { key: 'neighbors', label: 'Neighbors', category: 'general' },
 ]
+
+// Categories offered in Compose (stored values). "resources" is no longer offered.
+export const COMPOSE_CATEGORIES = ['safety', 'events', 'general']

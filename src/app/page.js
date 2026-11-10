@@ -6,9 +6,9 @@ import BottomNav from '@/components/BottomNav'
 import Header from '@/components/Header'
 import FeedFilters from '@/components/FeedFilters'
 import HelpTab from '@/components/HelpTab'
-import ComposeBox from '@/components/ComposeBox'
+import ComposeView from '@/components/ComposeView'
 import PostCard from '@/components/PostCard'
-import CommentThread from '@/components/CommentThread'
+import PostDetail from '@/components/PostDetail'
 import SafetyTab from '@/components/SafetyTab'
 import MeTab from '@/components/MeTab'
 import { FEED_FILTERS } from '@/lib/categories'
@@ -29,11 +29,16 @@ export default function HomePage() {
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('general')
   const [isAnonymous, setIsAnonymous] = useState(true)
-  const [expandedPost, setExpandedPost] = useState(null)
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [posting, setPosting] = useState(false)
+  const [postError, setPostError] = useState(false)
+  const [openPostId, setOpenPostId] = useState(null)   // post shown in Post detail
   const [commentText, setCommentText] = useState('')
   const [replyTo, setReplyTo] = useState(null)
   const [comments, setComments] = useState({})
   const [commentAnonymous, setCommentAnonymous] = useState(true)
+  const [sendingReply, setSendingReply] = useState(false)
+  const [replyError, setReplyError] = useState(false)
   const [profile, setProfile] = useState(null)
   const [profileLoaded, setProfileLoaded] = useState(false)
   const [reportingPost, setReportingPost] = useState(null)
@@ -41,8 +46,7 @@ export default function HomePage() {
   const [confirmDelete, setConfirmDelete] = useState(null)   // e.g. 'post-12' or 'comment-34'
   const [deleteErrors, setDeleteErrors] = useState({})
   const [feedFilter, setFeedFilter] = useState('all')
-  const composeRef = useRef(null)
-  const [composeRequest, setComposeRequest] = useState(0)
+  const feedScrollY = useRef(null)   // where the feed was scrolled before opening Compose/detail
 
   async function getPosts() {
     const { data, error } = await feedPostsQuery(supabase)
@@ -85,18 +89,37 @@ export default function HomePage() {
     return () => { ignore = true }
   }, [supabase, router])
 
-  // "+ Post" in the header: switch to the feed (if needed), then focus the compose box
+  // The post shown in Post detail (gone if it was deleted)
+  const openPost = openPostId ? posts.find(p => p.id === openPostId) : null
+  const fullView = composeOpen ? 'compose' : openPost ? 'detail' : null
+
+  // Back on the feed: return to where it was scrolled
   useEffect(() => {
-    if (composeRequest === 0) return
-    const box = composeRef.current
-    if (!box) return
-    box.focus({ preventScroll: true })
-    box.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  }, [composeRequest])
+    if (fullView || feedScrollY.current == null) return
+    window.scrollTo(0, feedScrollY.current)
+    feedScrollY.current = null
+  }, [fullView])
+
+  function leaveFeed() {
+    if (activeTab === 'feed' && !fullView) feedScrollY.current = window.scrollY
+    window.scrollTo(0, 0)
+  }
 
   function openCompose() {
+    leaveFeed()
     setActiveTab('feed')
-    setComposeRequest(n => n + 1)
+    setOpenPostId(null)
+    setPostError(false)
+    setComposeOpen(true)
+  }
+
+  function openPostDetail(postId) {
+    leaveFeed()
+    setOpenPostId(postId)
+    setReplyTo(null)
+    setCommentText('')
+    setReplyError(false)
+    getComments(postId)
   }
 
   async function getComments(postId) {
@@ -110,16 +133,25 @@ export default function HomePage() {
   }
 
   async function createPost() {
-    if (!content.trim()) return
+    if (!content.trim() || posting) return
+    setPosting(true)
+    setPostError(false)
     const { error } = await supabase.from('posts').insert({
       user_id: user?.id,
       content,
       category,
       is_anonymous: isAnonymous,
     })
-    if (error) console.log(error)
+    setPosting(false)
+    if (error) {
+      // Keep the draft so nothing is lost
+      console.log(error)
+      setPostError(true)
+      return
+    }
     setContent('')
     setIsAnonymous(true)
+    setComposeOpen(false)
     getPosts()
   }
 
@@ -135,7 +167,9 @@ export default function HomePage() {
   }
 
   async function addComment(postId, parentId = null) {
-    if (!commentText.trim()) return
+    if (!commentText.trim() || sendingReply) return
+    setSendingReply(true)
+    setReplyError(false)
     const { error } = await supabase.from('comments').insert({
       user_id: user?.id,
       post_id: postId,
@@ -143,7 +177,13 @@ export default function HomePage() {
       is_anonymous: commentAnonymous,
       parent_id: parentId,
     })
-    if (error) console.log(error)
+    setSendingReply(false)
+    if (error) {
+      // Keep the text so nothing is lost
+      console.log(error)
+      setReplyError(true)
+      return
+    }
     setCommentText('')
     setCommentAnonymous(true)
     setReplyTo(null)
@@ -178,8 +218,12 @@ export default function HomePage() {
       setDeleteErrors(prev => ({ ...prev, [key]: true }))
       return
     }
-    if (kind === 'post') getPosts()
-    else getComments(postId)
+    if (kind === 'post') {
+      if (id === openPostId) setOpenPostId(null)
+      getPosts()
+    } else {
+      getComments(postId)
+    }
   }
 
   // Shared by every DeleteControl (posts and comments)
@@ -194,6 +238,19 @@ export default function HomePage() {
     onDelete: deleteItem,
   }
 
+  // Upvote / Report / Delete props for one post (feed card and detail)
+  function actionPropsFor(post) {
+    return {
+      onToggleUpvote: () => toggleUpvote(post),
+      isReporting: reportingPost === post.id,
+      onToggleReport: () => setReportingPost(reportingPost === post.id ? null : post.id),
+      onCancelReport: () => setReportingPost(null),
+      reportStatus: reportedPosts[post.id],
+      onReport: reason => reportPost(post.id, reason),
+      deleteProps,
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut()
     router.push('/login')
@@ -204,6 +261,52 @@ export default function HomePage() {
     ? posts.filter(p => p.category === activeFilter.category)
     : posts
 
+  if (fullView === 'compose') {
+    return (
+      <div className="min-h-screen">
+        <ComposeView
+          content={content}
+          onContentChange={setContent}
+          category={category}
+          onCategoryChange={setCategory}
+          isAnonymous={isAnonymous}
+          onAnonymousChange={setIsAnonymous}
+          onPost={createPost}
+          onCancel={() => setComposeOpen(false)}
+          posting={posting}
+          postError={postError}
+        />
+      </div>
+    )
+  }
+
+  if (fullView === 'detail') {
+    return (
+      <div className="min-h-screen">
+        <PostDetail
+          post={openPost}
+          onBack={() => setOpenPostId(null)}
+          actionProps={actionPropsFor(openPost)}
+          comments={comments[openPost.id]}
+          replyTo={replyTo}
+          onReplyTo={commentId => {
+            setReplyTo(replyTo === commentId ? null : commentId)
+            setCommentText('')
+            setReplyError(false)
+          }}
+          commentText={commentText}
+          onCommentTextChange={setCommentText}
+          commentAnonymous={commentAnonymous}
+          onCommentAnonymousChange={setCommentAnonymous}
+          onAddComment={() => addComment(openPost.id, replyTo)}
+          sendingReply={sendingReply}
+          replyError={replyError}
+          deleteProps={deleteProps}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen">
 
@@ -212,21 +315,10 @@ export default function HomePage() {
       <div className="p-4 pb-20">
         {activeTab === 'feed' && (
           <div>
-            <ComposeBox
-              content={content}
-              onContentChange={setContent}
-              category={category}
-              onCategoryChange={setCategory}
-              isAnonymous={isAnonymous}
-              onAnonymousChange={setIsAnonymous}
-              onPost={createPost}
-              textareaRef={composeRef}
-            />
-
             <FeedFilters activeFilter={feedFilter} onFilterChange={setFeedFilter} />
 
             {posts.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center mt-8">No posts yet. Be the first!</p>
+              <p className="text-base text-muted text-center mt-8">No posts yet. Be the first!</p>
             ) : visiblePosts.length === 0 ? (
               <p className="text-base text-muted text-center mt-8">
                 No {activeFilter.label} posts right now.
@@ -237,37 +329,11 @@ export default function HomePage() {
                   <PostCard
                     key={post.id}
                     post={post}
-                    onToggleUpvote={() => toggleUpvote(post)}
-                    isExpanded={expandedPost === post.id}
                     // Loaded comments are fresher than the count from the last feed fetch
                     replyCount={comments[post.id]?.length ?? post.comment_count}
-                    onToggleComments={() => {
-                      setExpandedPost(expandedPost === post.id ? null : post.id)
-                      getComments(post.id)
-                    }}
-                    isReporting={reportingPost === post.id}
-                    onToggleReport={() => setReportingPost(reportingPost === post.id ? null : post.id)}
-                    onCancelReport={() => setReportingPost(null)}
-                    reportStatus={reportedPosts[post.id]}
-                    onReport={reason => reportPost(post.id, reason)}
-                    deleteProps={deleteProps}
-                  >
-                    <CommentThread
-                      postId={post.id}
-                      comments={comments[post.id]}
-                      replyTo={replyTo}
-                      onToggleReply={commentId => {
-                        setReplyTo(replyTo === commentId ? null : commentId)
-                        setCommentText('')
-                      }}
-                      commentText={commentText}
-                      onCommentTextChange={setCommentText}
-                      commentAnonymous={commentAnonymous}
-                      onCommentAnonymousChange={setCommentAnonymous}
-                      onAddComment={parentId => addComment(post.id, parentId)}
-                      deleteProps={deleteProps}
-                    />
-                  </PostCard>
+                    onOpen={() => openPostDetail(post.id)}
+                    actionProps={actionPropsFor(post)}
+                  />
                 ))}
                 <p className="text-sm text-muted text-center py-6">
                   That&apos;s everything on your block for now.
