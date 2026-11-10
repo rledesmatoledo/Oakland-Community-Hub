@@ -26,6 +26,34 @@
   --color-green-900: #3e6f61;
 }
 
+/* Design "D: Oakland, professional" (see docs/design.md) */
+@theme {
+  --color-canvas: #fbfaf7;
+  --color-surface: #ffffff;
+  --color-ink: #14161a;
+  --color-muted: #5b616b;
+  --color-line: #e6e3dc;
+  --color-line-soft: #efece6;
+  --color-field-border: #d5d1c8;
+  --color-brand: #184a45;
+  --color-accent: #f2a93b;
+  --color-accent-ink: #8a5300;
+  --color-danger: #b42318;
+
+  --color-cat-safety: #c2410c;
+  --color-cat-happening: #2c5da8;
+  --color-cat-neighbors: #184a45;
+  --color-cat-help: #7a5a9e;
+}
+
+/* Fonts come from next/font in layout.js, which defines --font-display and
+   --font-body on <html>. "reference" makes Tailwind generate font-display /
+   font-body utilities without redefining those variables (which would loop). */
+@theme inline reference {
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
